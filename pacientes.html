@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Pacientes</title>
+</head>
+
+<body>
+
+<h2>Sistema CT v1.1</h2>
+
+<div>
+<button onclick="window.location='pacientes.html'">Pacientes</button>
+<button onclick="window.location='responsaveis.html'">Responsáveis</button>
+<button onclick="window.location='chamada.html'">Chamada</button>
+<button onclick="logout()">Sair</button>
+</div>
+
+<h3>Pacientes</h3>
+
+<button onclick="novoPaciente()">Adicionar Paciente</button>
+
+<table border="1" id="tabelaPacientes">
+<tr>
+<th>Nome</th>
+<th>CPF</th>
+<th>Ações</th>
+</tr>
+</table>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+
+<script>
+
+// 🔐 Verifica login
+async function verificarSessao(){
+    const { data } = await supabase.auth.getSession()
+
+    if(!data.session){
+        window.location.href = "index.html"
+    }
+}
+
+verificarSessao()
+
+// 🚪 Logout
+async function logout(){
+    await supabase.auth.signOut()
+    window.location.href = "index.html"
+}
+
+// 📋 Carregar pacientes
+async function carregarPacientes(){
+
+    const { data, error } = await supabase
+        .from("pacientes")
+        .select("*")
+        .order("nome")
+
+    if(error){
+        alert("Erro ao carregar pacientes")
+        return
+    }
+
+    const tabela = document.getElementById("tabelaPacientes")
+
+    data.forEach(p => {
+
+        let linha = tabela.insertRow()
+
+        linha.insertCell(0).innerText = p.nome
+        linha.insertCell(1).innerText = p.cpf || ""
+
+        let btnEditar = `<button onclick="editarPaciente(${p.id})">Editar</button>`
+        linha.insertCell(2).innerHTML = btnEditar
+    })
+}
+
+carregarPacientes()
+
+function editarPaciente(id){
+    window.location.href = "editarPaciente.html?id=" + id
+}
+
+function novoPaciente(){
+    window.location.href = "editarPaciente.html"
+}
+
+</script>
+
+</body>
+</html>

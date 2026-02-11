@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Editar Paciente</title>
+</head>
+
+<body>
+
+<h2>Sistema CT v1.1</h2>
+
+<div>
+<button onclick="window.location='pacientes.html'">Pacientes</button>
+<button onclick="window.location='responsaveis.html'">Responsáveis</button>
+<button onclick="window.location='chamada.html'">Chamada</button>
+</div>
+
+<h3>Paciente</h3>
+
+<input type="text" id="nome" placeholder="Nome"><br><br>
+<input type="text" id="cpf" placeholder="CPF"><br><br>
+<input type="date" id="data_nascimento"><br><br>
+<input type="text" id="telefone" placeholder="Telefone"><br><br>
+
+<textarea id="observacoes" placeholder="Observações"></textarea><br><br>
+
+<button onclick="salvarPaciente()">Salvar</button>
+<button onclick="window.location='pacientes.html'">Voltar</button>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+
+<script>
+
+let pacienteId = null
+
+// 🔐 verifica sessão
+async function verificarSessao(){
+    const { data } = await supabase.auth.getSession()
+
+    if(!data.session){
+        window.location.href = "index.html"
+    }
+}
+
+verificarSessao()
+
+// pegar id da url
+const params = new URLSearchParams(window.location.search)
+pacienteId = params.get("id")
+
+// carregar paciente se estiver editando
+async function carregarPaciente(){
+
+    if(!pacienteId) return
+
+    const { data, error } = await supabase
+        .from("pacientes")
+        .select("*")
+        .eq("id", pacienteId)
+        .single()
+
+    if(error){
+        alert("Erro ao carregar paciente")
+        return
+    }
+
+    document.getElementById("nome").value = data.nome || ""
+    document.getElementById("cpf").value = data.cpf || ""
+    document.getElementById("data_nascimento").value = data.data_nascimento || ""
+    document.getElementById("telefone").value = data.telefone || ""
+    document.getElementById("observacoes").value = data.observacoes || ""
+}
+
+carregarPaciente()
+
+
+// salvar paciente
+async function salvarPaciente(){
+
+    const paciente = {
+        nome: document.getElementById("nome").value,
+        cpf: document.getElementById("cpf").value,
+        data_nascimento: document.getElementById("data_nascimento").value,
+        telefone: document.getElementById("telefone").value,
+        observacoes: document.getElementById("observacoes").value
+    }
+
+    let response
+
+    if(pacienteId){
+        response = await supabase
+            .from("pacientes")
+            .update(paciente)
+            .eq("id", pacienteId)
+    }else{
+        response = await supabase
+            .from("pacientes")
+            .insert([paciente])
+    }
+
+    if(response.error){
+        alert("Erro ao salvar")
+        return
+    }
+
+    alert("Salvo com sucesso!")
+    window.location.href = "pacientes.html"
+}
+
+</script>
+
+</body>
+</html>

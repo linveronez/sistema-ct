@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Lista de Chamada - Sistema CT</title>
+
+<style>
+body{
+  font-family: Arial;
+  background:#111;
+  color:white;
+  padding:20px;
+}
+
+.container{
+  background:#1e1e1e;
+  padding:20px;
+  border-radius:10px;
+  margin-top:15px;
+}
+
+.linha{
+  display:flex;
+  justify-content:space-between;
+  border-bottom:1px solid #444;
+  padding:8px 0;
+}
+
+.nome{
+  flex:1;
+}
+
+.assinatura{
+  width:200px;
+  border-bottom:1px solid #aaa;
+}
+
+button{
+  padding:10px;
+  margin-top:10px;
+  border:none;
+  border-radius:6px;
+  background:#00c853;
+  color:white;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+/* Estilo de impressão */
+@media print {
+
+  body{
+    background:white;
+    color:black;
+  }
+
+  button{
+    display:none;
+  }
+
+  .container{
+    background:white;
+    border:none;
+  }
+
+}
+</style>
+</head>
+
+<body>
+
+<h1>Lista de Presença</h1>
+<div id="dataHoje"></div>
+
+<div>
+<button onclick="window.location='index.html'">Pacientes</button>
+<button onclick="imprimir()">Imprimir Lista</button>
+</div>
+
+<div class="container" id="lista"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+
+<script>
+
+function imprimir(){
+  window.print()
+}
+
+function mostrarData(){
+  const hoje = new Date()
+  const dataFormatada = hoje.toLocaleDateString("pt-BR")
+  document.getElementById("dataHoje").innerText = "Data: " + dataFormatada
+}
+
+async function carregarPacientesAtivos(){
+
+  const hoje = new Date().toISOString().split("T")[0]
+
+  const { data: { user } } = await supabaseClient.auth.getUser()
+  if(!user) return
+
+  const { data: perfil } = await supabaseClient
+    .from("perfis")
+    .select("instituicao_id")
+    .eq("id", user.id)
+    .single()
+
+  const { data: pacientes, error } = await supabaseClient
+    .from("pacientes")
+    .select("*")
+    .eq("instituicao_id", perfil.instituicao_id)
+    .is("data_desligamento", null)
+
+  if(error){
+    console.log(error)
+    return
+  }
+
+  // filtra contrato válido
+  const ativos = pacientes.filter(p =>
+    !p.data_fim_contrato || p.data_fim_contrato >= hoje
+  )
+
+  const div = document.getElementById("lista")
+  div.innerHTML=""
+
+  ativos.forEach(p=>{
+
+    const linha = document.createElement("div")
+    linha.className="linha"
+
+    const nome = document.createElement("div")
+    nome.className="nome"
+    nome.innerText = p.nome
+
+    const assinatura = document.createElement("div")
+    assinatura.className="assinatura"
+
+    linha.appendChild(nome)
+    linha.appendChild(assinatura)
+
+    div.appendChild(linha)
+
+  })
+}
+
+mostrarData()
+carregarPacientesAtivos()
+
+</script>
+
+</body>
+</html>

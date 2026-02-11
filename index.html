@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Sistema CT v1.1 - Login</title>
+</head>
+
+<body>
+
+<h2>Sistema CT v1.1</h2>
+<p>Login</p>
+
+<input type="email" id="email" placeholder="Email"><br><br>
+<input type="password" id="senha" placeholder="Senha"><br><br>
+
+<button onclick="login()">Entrar</button>
+
+<p id="mensagem" style="color:red;"></p>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+
+<script>
+
+// 🔐 LOGIN
+async function login(){
+
+    const email = document.getElementById("email").value
+    const senha = document.getElementById("senha").value
+    const mensagem = document.getElementById("mensagem")
+
+    mensagem.innerText = "Entrando..."
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: senha
+    })
+
+    if(error){
+        mensagem.innerText = "Erro: " + error.message
+        return
+    }
+
+    // sucesso
+    window.location.href = "pacientes.html"
+}
+
+
+// 🔎 Se já estiver logado, pula o login
+async function verificarSessao(){
+
+    const { data } = await supabase.auth.getSession()
+
+    if(data.session){
+        window.location.href = "pacientes.html"
+    }
+}
+
+verificarSessao()
+
+</script>
+
+</body>
+</html>

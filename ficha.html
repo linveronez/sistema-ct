@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Ficha do Paciente - Sistema CT</title>
+
+<style>
+body{
+  font-family: Arial;
+  background:#111;
+  color:white;
+  padding:20px;
+}
+
+.container{
+  background:#1e1e1e;
+  padding:20px;
+  border-radius:10px;
+  margin-top:15px;
+}
+
+input, button{
+  padding:10px;
+  border-radius:6px;
+  border:none;
+  margin-top:8px;
+  width:100%;
+}
+
+button{
+  background:#00c853;
+  color:white;
+  font-weight:bold;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Ficha do Paciente</h1>
+<button onclick="window.location='index.html'">← Voltar</button>
+
+<div class="container">
+
+<input id="nome" placeholder="Nome">
+<input id="cpf" placeholder="CPF">
+
+<h3>Contrato</h3>
+
+<label>Data início</label>
+<input type="date" id="dataInicio">
+
+<label>Prazo (meses)</label>
+<input type="number" id="prazo" oninput="calcularDataFim()">
+
+<label>Data fim</label>
+<input type="date" id="dataFim" readonly>
+
+<label>Data desligamento</label>
+<input type="date" id="dataDesligamento">
+
+<button onclick="salvarFicha()">Salvar</button>
+
+<p id="status"></p>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+
+<script>
+
+let pacienteId = null
+
+// pega id da URL
+function pegarId(){
+  const params = new URLSearchParams(window.location.search)
+  pacienteId = params.get("id")
+}
+
+function calcularDataFim(){
+
+  const inicio = document.getElementById("dataInicio").value
+  const prazo = parseInt(document.getElementById("prazo").value)
+
+  if(!inicio || !prazo) return
+
+  const data = new Date(inicio)
+  data.setMonth(data.getMonth() + prazo)
+
+  const fim = data.toISOString().split("T")[0]
+  document.getElementById("dataFim").value = fim
+}
+
+async function carregarPaciente(){
+
+  pegarId()
+  if(!pacienteId) return
+
+  const { data, error } = await supabaseClient
+    .from("pacientes")
+    .select("*")
+    .eq("id", pacienteId)
+    .single()
+
+  if(error) return
+
+  document.getElementById("nome").value = data.nome
+  document.getElementById("cpf").value = data.cpf || ""
+  document.getElementById("dataInicio").value = data.data_inicio_contrato || ""
+  document.getElementById("dataFim").value = data.data_fim_contrato || ""
+  document.getElementById("dataDesligamento").value = data.data_desligamento || ""
+}
+
+async function salvarFicha(){
+
+  document.getElementById("status").innerText="Salvando..."
+
+  const nome = document.getElementById("nome").value
+  const cpf = document.getElementById("cpf").value
+  const dataInicio = document.getElementById("dataInicio").value
+  const dataFim = document.getElementById("dataFim").value
+  const dataDesligamento = document.getElementById("dataDesligamento").value
+
+  const { error } = await supabaseClient
+    .from("pacientes")
+    .update({
+      nome,
+      cpf,
+      data_inicio_contrato: dataInicio,
+      data_fim_contrato: dataFim,
+      data_desligamento: dataDesligamento
+    })
+    .eq("id", pacienteId)
+
+  if(error){
+    document.getElementById("status").innerText="Erro ao salvar"
+  } else {
+    document.getElementById("status").innerText="Atualizado com sucesso"
+  }
+}
+
+carregarPaciente()
+
+</script>
+
+</body>
+</html>
