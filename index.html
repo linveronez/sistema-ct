@@ -31,7 +31,7 @@ async function login(){
 
     mensagem.innerText = "Entrando..."
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
         email: email,
         password: senha
     })
@@ -49,7 +49,7 @@ async function login(){
 // 🔎 Se já estiver logado, pula o login
 async function verificarSessao(){
 
-    const { data } = await supabase.auth.getSession()
+    const { data } = await supabaseClient.auth.getSession()
 
     if(data.session){
         window.location.href = "pacientes.html"
