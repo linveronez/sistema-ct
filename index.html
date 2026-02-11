@@ -1,63 +1,107 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
 <meta charset="UTF-8">
 <title>Sistema CT v1.1 - Login</title>
-</head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<style>
+body{
+    font-family: Arial;
+    background:#f4f4f4;
+    padding:20px;
+}
+
+.container{
+    max-width:400px;
+    margin:auto;
+    background:white;
+    padding:20px;
+    border-radius:8px;
+    box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+h1{
+    text-align:center;
+}
+
+input{
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+}
+
+button{
+    width:100%;
+    padding:10px;
+    margin-top:15px;
+    cursor:pointer;
+}
+
+#mensagem{
+    margin-top:10px;
+    color:red;
+}
+</style>
+</head>
 <body>
 
-<h2>Sistema CT v1.1</h2>
-<p>Login</p>
+<div class="container">
+    <h1>Sistema CT v1.1</h1>
 
-<input type="email" id="email" placeholder="Email"><br><br>
-<input type="password" id="senha" placeholder="Senha"><br><br>
+    <h3>Login</h3>
 
-<button onclick="login()">Entrar</button>
+    <input type="email" id="email" placeholder="E-mail">
+    <input type="password" id="password" placeholder="Senha">
 
-<p id="mensagem" style="color:red;"></p>
+    <button onclick="login()">Entrar</button>
+
+    <div id="mensagem"></div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase.js"></script>
 
 <script>
+const SUPABASE_URL = "https://ocrcqcqzvmdzvhlpykcd.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_2wiSDlRGeZKif9LDzRKj7Q_SJPl17t9";
+
+const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+);
 
 // 🔐 LOGIN
 async function login(){
 
-    const email = document.getElementById("email").value
-    const senha = document.getElementById("senha").value
-    const mensagem = document.getElementById("mensagem")
+    document.getElementById("mensagem").innerText = "Entrando...";
 
-    mensagem.innerText = "Entrando..."
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
 
     const { data, error } = await supabaseClient.auth.signInWithPassword({
         email: email,
-        password: senha
-    })
+        password: password
+    });
 
     if(error){
-        mensagem.innerText = "Erro: " + error.message
-        return
+        document.getElementById("mensagem").innerText = error.message;
+        return;
     }
 
-    // sucesso
-    window.location.href = "pacientes.html"
+    window.location.href = "pacientes.html";
 }
 
-
-// 🔎 Se já estiver logado, pula o login
+// 🔎 VERIFICA SE JÁ ESTÁ LOGADO
 async function verificarSessao(){
 
-    const { data } = await supabaseClient.auth.getSession()
+    const { data } = await supabaseClient.auth.getSession();
 
     if(data.session){
-        window.location.href = "pacientes.html"
+        window.location.href = "pacientes.html";
     }
 }
 
-verificarSessao()
-
+verificarSessao();
 </script>
 
 </body>
