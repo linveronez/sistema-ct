@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Evoluções — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+<style>
+/* ── Tabs gerais ── */
+.evol-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid var(--border); }
+.evol-tab {
+  padding: 9px 18px; font-size: 13.5px; font-weight: 500;
+  cursor: pointer; border: none; background: none;
+  color: var(--text-secondary); border-bottom: 2px solid transparent;
+  margin-bottom: -2px; font-family: 'Inter', sans-serif; transition: all .18s;
+}
+.evol-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+/* ── Tabs de módulo (Clínica x Plantão) ── */
+.modulo-tabs { display: flex; gap: 6px; margin-bottom: 20px; }
+.modulo-tab {
+  padding: 8px 18px; font-size: 13px; font-weight: 600;
+  border: 2px solid var(--border); border-radius: var(--radius-md);
+  cursor: pointer; background: var(--bg); color: var(--text-secondary);
+  font-family: 'Inter', sans-serif; transition: all .14s;
+}
+.modulo-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+.evol-layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+@media (max-width: 900px) { .evol-layout { grid-template-columns: 1fr; } }
+
+/* ── Sidebar ── */
+.pac-list-sidebar {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden;
+  max-height: 600px; display: flex; flex-direction: column;
+}
+.pac-list-header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 13.5px; background: var(--bg); }
+.pac-list-search { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.pac-list-search input { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: 'Inter', sans-serif; outline: none; }
+.pac-list-items { overflow-y: auto; flex: 1; }
+.pac-list-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .12s; display: flex; align-items: center; gap: 10px; }
+.pac-list-item:hover { background: var(--bg); }
+.pac-list-item.selected { background: var(--primary-light); border-left: 3px solid var(--primary); }
+.pac-list-item .pac-ini { width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.pac-list-item.selected .pac-ini { background: var(--primary); color: white; }
+.pac-list-item .pac-info .pac-nome-list { font-size: 13.5px; font-weight: 500; }
+.pac-list-item .pac-info .pac-prof { font-size: 11.5px; color: var(--text-secondary); }
+
+/* ── Evolução Clínica ── */
+.evol-main { display: flex; flex-direction: column; gap: 16px; }
+.evol-form-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.evol-form-header { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.evol-form-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.evol-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.evol-item { padding: 16px 20px; border-bottom: 1px solid var(--border); position: relative; }
+.evol-item:last-child { border-bottom: none; }
+.evol-item-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.evol-tipo-badge { padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+.evol-tipo-t { background:#eff6ff; color:#1d4ed8; }
+.evol-tipo-p { background:#fdf4ff; color:#7c3aed; }
+.evol-data { font-size: 12px; color: var(--text-secondary); }
+.evol-hora { font-size: 12px; color: var(--text-secondary); }
+.evol-prof { font-size: 12px; color: var(--text-secondary); margin-left: auto; }
+.evol-texto { font-size: 13.5px; color: var(--text-primary); line-height: 1.6; white-space: pre-wrap; }
+.evol-del { position: absolute; top: 14px; right: 16px; background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text-muted); padding: 2px 6px; border-radius: 4px; transition: all .18s; }
+.evol-del:hover { background: var(--danger-light); color: var(--danger); }
+
+/* Assinatura */
+.assinatura-bloco { margin-top: 10px; padding: 10px 14px; border-top: 1px solid var(--border); display: flex; align-items: flex-end; gap: 12px; }
+.assinatura-texto { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.assinatura-nome-prof { font-weight: 700; font-size: 13px; color: var(--text-primary); }
+
+/* ── PLANTÃO ── */
+.plantao-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+.plantao-form-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+
+/* Turno selector */
+.turno-selector { display: flex; gap: 8px; }
+.turno-btn {
+  flex: 1; padding: 10px 8px; border: 2px solid var(--border);
+  border-radius: var(--radius-md); cursor: pointer; text-align: center;
+  font-size: 13px; font-weight: 600; font-family: 'Inter', sans-serif;
+  background: var(--bg); color: var(--text-secondary); transition: all .14s;
+}
+.turno-btn:hover { border-color: var(--primary); }
+.turno-btn.active { border-color: var(--primary); background: var(--primary); color: white; }
+.turno-btn .turno-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+
+/* Humor selector */
+.humor-selector { display: flex; gap: 8px; flex-wrap: wrap; }
+.humor-btn {
+  padding: 8px 14px; border: 2px solid var(--border);
+  border-radius: var(--radius-md); cursor: pointer;
+  font-size: 18px; background: var(--bg); transition: all .14s;
+  display: flex; align-items: center; gap: 6px;
+}
+.humor-btn:hover { border-color: var(--primary); transform: scale(1.05); }
+.humor-btn.active { border-color: var(--primary); background: var(--primary-light); }
+.humor-btn .humor-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+
+/* Checkboxes visuais */
+.check-visual { display: flex; gap: 10px; flex-wrap: wrap; }
+.check-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  cursor: pointer; font-size: 13px; font-family: 'Inter', sans-serif;
+  transition: all .12s; user-select: none;
+}
+.check-item input { accent-color: var(--primary); width: 15px; height: 15px; }
+.check-item:hover { border-color: var(--primary); }
+
+/* Cards de plantão histórico */
+.plantao-item {
+  padding: 14px 20px; border-bottom: 1px solid var(--border); position: relative;
+}
+.plantao-item:last-child { border-bottom: none; }
+.plantao-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.turno-badge { padding: 3px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 700; }
+.turno-manha  { background: #fffbeb; color: #92400e; }
+.turno-tarde  { background: #eff6ff; color: #1d4ed8; }
+.turno-noite  { background: #1e1b4b; color: #c7d2fe; }
+.humor-display { font-size: 20px; }
+.plantao-meta { font-size: 12px; color: var(--text-secondary); display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.plantao-grid-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; margin-top: 8px; }
+.plantao-info-bloco { background: var(--bg); border-radius: var(--radius-sm); padding: 8px 12px; }
+.plantao-info-label { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: var(--text-secondary); margin-bottom: 3px; }
+.crise-badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+.crise-sim { background: #fef2f2; color: #991b1b; }
+.crise-nao { background: #ecfdf5; color: #065f46; }
+
+/* Modal assinaturas */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(2px); }
+.modal-box { background: white; border-radius: var(--radius-xl); width: 100%; max-width: 480px; box-shadow: var(--shadow-lg); }
+.modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-secondary); }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+.sig-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+.sig-info .sig-nome { font-weight: 700; font-size: 14px; }
+.sig-info .sig-titulo { font-size: 12px; color: var(--text-secondary); }
+.sig-info .sig-crt { font-size: 11px; color: var(--text-muted); }
+.empty-evol { padding: 32px; text-align: center; color: var(--text-muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="sidebar"></div>
+
+<div class="content">
+
+  <div class="header-page">
+    <div>
+      <h1>Evoluções</h1>
+      <p class="page-subtitle">Registro terapêutico, psicológico e evolução de plantão</p>
+    </div>
+    <button class="btn-secondary" onclick="abrirModalAssinaturas()">✍️ Assinaturas</button>
+  </div>
+
+  <!-- Tabs de módulo -->
+  <div class="modulo-tabs">
+    <button class="modulo-tab active" onclick="setModulo('clinica', this)">📝 Evolução Clínica</button>
+    <button class="modulo-tab" onclick="setModulo('plantao', this)">🌙 Evolução de Plantão</button>
+  </div>
+
+  <div class="evol-layout">
+
+    <!-- Sidebar -->
+    <div class="pac-list-sidebar">
+      <div class="pac-list-header">👤 Selecione o Paciente</div>
+      <div class="pac-list-search">
+        <input type="text" id="searchPac" placeholder="Buscar..." oninput="filtrarPacs()">
+      </div>
+      <div class="pac-list-items" id="pacList"></div>
+    </div>
+
+    <!-- Área principal -->
+    <div class="evol-main">
+
+      <div id="estadoVazio" class="evol-card">
+        <div class="empty-evol">
+          <div style="font-size:36px;margin-bottom:12px;">📝</div>
+          <strong>Selecione um paciente</strong>
+          <p style="margin-top:4px;">Escolha o paciente ao lado para ver e registrar evoluções.</p>
+        </div>
+      </div>
+
+      <!-- ══ MÓDULO CLÍNICA ══════════════════════════ -->
+      <div id="moduloClinica" style="display:none;">
+
+        <div class="evol-form-card">
+          <div class="evol-form-header">
+            <span style="font-weight:600;font-size:14px;" id="formTitle">Nova Evolução</span>
+            <div class="evol-tabs">
+              <button class="evol-tab active" onclick="setTipo('terapeutica')">🧑‍⚕️ Terapêutica</button>
+              <button class="evol-tab" onclick="setTipo('psicologica')">🧠 Psicológica</button>
+            </div>
+          </div>
+          <div class="evol-form-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Data da Evolução</label>
+                <input type="date" id="dataEvol">
+              </div>
+              <div class="form-group">
+                <label>Horário</label>
+                <input type="time" id="horaEvol">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Profissional</label>
+                <select id="profEvol">
+                  <option value="">Selecione...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Usar assinatura cadastrada?</label>
+                <select id="assinaturaEvol" onchange="preencherAssinatura()">
+                  <option value="">Sem assinatura</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Registro de Evolução</label>
+              <textarea id="descEvol" rows="5" placeholder="Descreva a evolução do paciente..."></textarea>
+            </div>
+            <div>
+              <button class="btn-primary" onclick="salvarEvolucao()">💾 Salvar Evolução</button>
+              <span id="feedbackEvol" style="font-size:13px;color:#64748b;margin-left:10px;"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de evoluções clínicas -->
+        <div class="evol-card">
+          <div class="card-header">
+            <span class="card-title" id="titleHistorico">Histórico</span>
+            <select id="filtroTipoEvol" class="filtros" style="margin:0;padding:5px 10px;height:30px;font-size:12px;" onchange="carregarEvolucoes()">
+              <option value="">Todos os tipos</option>
+              <option value="terapeutica">🧑‍⚕️ Terapêuticas</option>
+              <option value="psicologica">🧠 Psicológicas</option>
+            </select>
+          </div>
+          <div id="listaEvolucoes"></div>
+        </div>
+
+      </div>
+
+      <!-- ══ MÓDULO PLANTÃO ══════════════════════════ -->
+      <div id="moduloPlantao" style="display:none;">
+
+        <div class="plantao-card">
+          <div class="card-header">
+            <span class="card-title" id="plantaoTitle">🌙 Nova Evolução de Plantão</span>
+          </div>
+          <div class="plantao-form-body">
+
+            <!-- Turno -->
+            <div class="form-group" style="margin:0;">
+              <label>Turno *</label>
+              <div class="turno-selector">
+                <div class="turno-btn active" onclick="setTurno('manha', this)" id="turno-manha">
+                  <span class="turno-icon">🌅</span>Manhã
+                </div>
+                <div class="turno-btn" onclick="setTurno('tarde', this)" id="turno-tarde">
+                  <span class="turno-icon">☀️</span>Tarde
+                </div>
+                <div class="turno-btn" onclick="setTurno('noite', this)" id="turno-noite">
+                  <span class="turno-icon">🌙</span>Noite
+                </div>
+              </div>
+              <input type="hidden" id="turnoSel" value="manha">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Data *</label>
+                <input type="date" id="plantaoData">
+              </div>
+              <div class="form-group">
+                <label>Hora do registro</label>
+                <input type="time" id="plantaoHora">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Profissional de Plantão</label>
+              <input type="text" id="plantaoProf" placeholder="Nome do profissional">
+            </div>
+
+            <!-- Humor -->
+            <div class="form-group" style="margin:0;">
+              <label>Humor / Estado Emocional</label>
+              <div class="humor-selector">
+                <div class="humor-btn" onclick="setHumor('muito_bem', this)">😄 <span class="humor-label">Muito Bem</span></div>
+                <div class="humor-btn" onclick="setHumor('bem', this)">🙂 <span class="humor-label">Bem</span></div>
+                <div class="humor-btn" onclick="setHumor('neutro', this)">😐 <span class="humor-label">Neutro</span></div>
+                <div class="humor-btn" onclick="setHumor('agitado', this)">😠 <span class="humor-label">Agitado</span></div>
+                <div class="humor-btn" onclick="setHumor('triste', this)">😢 <span class="humor-label">Triste</span></div>
+                <div class="humor-btn" onclick="setHumor('ansioso', this)">😰 <span class="humor-label">Ansioso</span></div>
+              </div>
+              <input type="hidden" id="humorSel" value="">
+            </div>
+
+            <!-- Comportamento -->
+            <div class="form-group">
+              <label>Comportamento</label>
+              <div class="check-visual">
+                <label class="check-item"><input type="checkbox" id="compCoop"> Cooperativo</label>
+                <label class="check-item"><input type="checkbox" id="compIso"> Isolado</label>
+                <label class="check-item"><input type="checkbox" id="compAgit"> Agitado</label>
+                <label class="check-item"><input type="checkbox" id="compRecusa"> Recusa ativ.</label>
+                <label class="check-item"><input type="checkbox" id="compSocial"> Sociável</label>
+                <label class="check-item"><input type="checkbox" id="compAnsioso"> Ansioso</label>
+              </div>
+            </div>
+
+            <!-- Medicação administrada -->
+            <div class="form-group">
+              <label>Medicação Administrada no Turno</label>
+              <textarea id="plantaoMed" rows="2" placeholder="Ex: Seroquel 25mg 20h — administrado. Rivotril 0,5mg 22h — recusado..."></textarea>
+            </div>
+
+            <!-- Crises -->
+            <div class="form-group" style="margin:0;">
+              <label>Ocorreu Crise / Intercorrência?</label>
+              <div style="display:flex;gap:10px;margin-top:6px;">
+                <label class="check-item" style="flex:1;justify-content:center;" onclick="setCrise(true)">
+                  <input type="radio" name="crise" id="criseSimInput"> ⚠️ Sim
+                </label>
+                <label class="check-item" style="flex:1;justify-content:center;" onclick="setCrise(false)">
+                  <input type="radio" name="crise" id="criseNaoInput" checked> ✅ Não
+                </label>
+              </div>
+            </div>
+
+            <div id="criseDescArea" style="display:none;">
+              <div class="form-group">
+                <label>Descreva a intercorrência</label>
+                <textarea id="criseDesc" rows="2" placeholder="O que aconteceu, como foi resolvido..."></textarea>
+              </div>
+            </div>
+
+            <!-- Interação Social -->
+            <div class="form-group">
+              <label>Interação Social e Participação nas Atividades</label>
+              <select id="plantaoSocial">
+                <option value="">Não observado</option>
+                <option value="excelente">😁 Excelente — participação ativa</option>
+                <option value="boa">🙂 Boa — participou com incentivo</option>
+                <option value="regular">😐 Regular — participação parcial</option>
+                <option value="ruim">😞 Ruim — recusou atividades</option>
+                <option value="ausente">😶 Ausente — não interagiu</option>
+              </select>
+            </div>
+
+            <!-- Observações gerais -->
+            <div class="form-group">
+              <label>Observações Gerais do Plantão</label>
+              <textarea id="plantaoObs" rows="3" placeholder="Notas relevantes para a próxima equipe, comportamentos observados, visitas, etc."></textarea>
+            </div>
+
+            <div>
+              <button class="btn-primary" onclick="salvarPlantao()">💾 Salvar Evolução de Plantão</button>
+              <span id="fbPlantao" style="font-size:13px;color:#64748b;margin-left:10px;"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Histórico de plantões -->
+        <div class="evol-card" style="margin-top:0;">
+          <div class="card-header">
+            <span class="card-title" id="titlePlantaoHist">Últimas 7 Evoluções de Plantão</span>
+            <select id="filtroTurnoPlantao" style="height:30px;font-size:12px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius-sm);" onchange="carregarPlantoes()">
+              <option value="">Todos os turnos</option>
+              <option value="manha">🌅 Manhã</option>
+              <option value="tarde">☀️ Tarde</option>
+              <option value="noite">🌙 Noite</option>
+            </select>
+          </div>
+          <div id="listaPlantoes"></div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal de Assinaturas -->
+<div class="modal-overlay" id="modalAssinaturas" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>✍️ Assinaturas dos Profissionais</h2>
+      <button class="modal-close" onclick="fecharModalAssinaturas()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="listaSigs"></div>
+      <hr style="margin:16px 0;">
+      <p style="font-size:13px;font-weight:600;margin-bottom:12px;">+ Nova Assinatura</p>
+      <div class="form-group"><label>Nome completo</label><input type="text" id="sigNome" placeholder="Ex: Lincoln Veronez"></div>
+      <div class="form-group"><label>Título / Especialidade</label><input type="text" id="sigTitulo" placeholder="Ex: Terapeuta Holístico em Toxicodependência"></div>
+      <div class="form-group"><label>Registro (CRT, CRP, COREN...)</label><input type="text" id="sigRegistro" placeholder="Ex: CRT 9314/25"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="salvarAssinatura()">💾 Salvar</button>
+      <button class="btn-secondary" onclick="fecharModalAssinaturas()">Fechar</button>
+      <span id="fbSig" style="font-size:13px;color:#64748b;margin-left:8px;"></span>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script src="sidebar.js"></script>
+<script>
+let instituicaoId  = null;
+let pacienteSel    = null;
+let tipoEvol       = 'terapeutica';
+let pacientesCache = [];
+let assinaturasCache = [];
+let moduloAtual    = 'clinica';
+let turnoAtual     = 'manha';
+let humorAtual     = '';
+let criseAtual     = false;
+
+const PROFISSIONAIS = {
+  terapeutica: ["Lincoln","Peterson","Guerra"],
+  psicologica: ["Daniela","Luciano"]
+};
+
+const HUMOR_LABELS = { muito_bem:'😄 Muito Bem', bem:'🙂 Bem', neutro:'😐 Neutro', agitado:'😠 Agitado', triste:'😢 Triste', ansioso:'😰 Ansioso' };
+const TURNO_LABELS = { manha:'🌅 Manhã', tarde:'☀️ Tarde', noite:'🌙 Noite' };
+const SOCIAL_LABELS = { excelente:'😁 Excelente', boa:'🙂 Boa', regular:'😐 Regular', ruim:'😞 Ruim', ausente:'😶 Ausente' };
+
+async function iniciar() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = "index.html"; return; }
+  const { data: usuario } = await supabase
+    .from("usuarios").select("instituicao_id").eq("id", session.user.id).single();
+  if (!usuario) return;
+  instituicaoId = usuario.instituicao_id;
+
+  const agora = new Date();
+  document.getElementById("dataEvol").value    = agora.toISOString().split("T")[0];
+  document.getElementById("horaEvol").value    = agora.toTimeString().slice(0,5);
+  document.getElementById("plantaoData").value = agora.toISOString().split("T")[0];
+  document.getElementById("plantaoHora").value = agora.toTimeString().slice(0,5);
+
+  // Turno automático por hora
+  const h = agora.getHours();
+  const turnoAuto = h >= 6 && h < 14 ? 'manha' : h >= 14 && h < 22 ? 'tarde' : 'noite';
+  setTurnoAuto(turnoAuto);
+
+  await carregarPacientes();
+  await carregarAssinaturas();
+}
+
+// ── MÓDULO TABS ──────────────────────────────────────────
+function setModulo(m, btn) {
+  moduloAtual = m;
+  document.querySelectorAll('.modulo-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('moduloClinica').style.display = m === 'clinica' ? '' : 'none';
+  document.getElementById('moduloPlantao').style.display = m === 'plantao' ? '' : 'none';
+}
+
+// ── PACIENTES ────────────────────────────────────────────
+async function carregarPacientes() {
+  const { data } = await supabase.from("pacientes").select("id, nome, terapeuta, psicologo")
+    .eq("instituicao_id", instituicaoId).is("data_desligamento", null).order("nome");
+  pacientesCache = data || [];
+  renderPacList(pacientesCache);
+}
+
+async function carregarAssinaturas() {
+  const { data } = await supabase.from("assinaturas_profissionais")
+    .select("*").eq("instituicao_id", instituicaoId).order("nome");
+  assinaturasCache = data || [];
+  atualizarSelectAssinatura();
+}
+
+function atualizarSelectAssinatura() {
+  const sel = document.getElementById("assinaturaEvol");
+  if (!sel) return;
+  sel.innerHTML = `<option value="">Sem assinatura</option>` +
+    assinaturasCache.map(a => `<option value="${a.id}">${a.nome}</option>`).join("");
+}
+
+function preencherAssinatura() {}
+
+function renderPacList(lista) {
+  document.getElementById("pacList").innerHTML = lista.length === 0
+    ? `<div class="empty-evol">Nenhum paciente ativo.</div>`
+    : lista.map(p => {
+      const ini = p.nome.split(" ").slice(0,2).map(n=>n[0]).join("").toUpperCase();
+      const sel = pacienteSel?.id === p.id ? "selected" : "";
+      const prof = [p.terapeuta, p.psicologo].filter(Boolean).join(" · ") || "Sem profissional";
+      return `<div class="pac-list-item ${sel}" onclick="selecionarPaciente('${p.id}')">
+        <div class="pac-ini">${ini}</div>
+        <div class="pac-info">
+          <div class="pac-nome-list">${p.nome}</div>
+          <div class="pac-prof">${prof}</div>
+        </div>
+      </div>`;
+    }).join("");
+}
+
+function filtrarPacs() {
+  const q = document.getElementById("searchPac").value.toLowerCase();
+  renderPacList(pacientesCache.filter(p => p.nome.toLowerCase().includes(q)));
+}
+
+async function selecionarPaciente(id) {
+  pacienteSel = pacientesCache.find(p => p.id === id);
+  document.getElementById("estadoVazio").style.display = "none";
+  document.getElementById("moduloClinica").style.display = moduloAtual === 'clinica' ? '' : 'none';
+  document.getElementById("moduloPlantao").style.display = moduloAtual === 'plantao' ? '' : 'none';
+  document.getElementById("formTitle").textContent    = `Nova Evolução — ${pacienteSel.nome}`;
+  document.getElementById("titleHistorico").textContent = `Histórico de Evoluções — ${pacienteSel.nome}`;
+  document.getElementById("plantaoTitle").textContent  = `🌙 Nova Evolução de Plantão — ${pacienteSel.nome}`;
+  document.getElementById("titlePlantaoHist").textContent = `Últimas 7 Evoluções de Plantão — ${pacienteSel.nome}`;
+  renderPacList(pacientesCache);
+  setTipo(tipoEvol);
+  await carregarEvolucoes();
+  await carregarPlantoes();
+}
+
+// ── EVOLUÇÃO CLÍNICA ─────────────────────────────────────
+function setTipo(tipo) {
+  tipoEvol = tipo;
+  document.querySelectorAll(".evol-tab").forEach((t, i) => {
+    t.classList.toggle("active", ["terapeutica","psicologica"][i] === tipo);
+  });
+  const sel = document.getElementById("profEvol");
+  const profs = PROFISSIONAIS[tipo];
+  const prefProf = tipo === "terapeutica" ? pacienteSel?.terapeuta : pacienteSel?.psicologo;
+  sel.innerHTML = `<option value="">Selecione...</option>` +
+    profs.map(p => `<option value="${p}" ${p===prefProf?'selected':''}>${p}</option>`).join("");
+}
+
+async function carregarEvolucoes() {
+  if (!pacienteSel) return;
+  const filtroTipo = document.getElementById("filtroTipoEvol").value;
+  let query = supabase.from("evolucoes").select("*")
+    .eq("instituicao_id", instituicaoId).eq("paciente_id", pacienteSel.id)
+    .order("data_evolucao", { ascending: false }).order("hora_evolucao", { ascending: false });
+  if (filtroTipo) query = query.eq("tipo", filtroTipo);
+  const { data } = await query;
+  const lista = data || [];
+
+  if (lista.length === 0) {
+    document.getElementById("listaEvolucoes").innerHTML =
+      `<div class="empty-evol">Nenhuma evolução registrada.</div>`;
+    return;
+  }
+  document.getElementById("listaEvolucoes").innerHTML = lista.map(e => {
+    const isT = e.tipo === "terapeutica";
+    let assinHtml = '';
+    if (e.assinatura_id) {
+      const sig = assinaturasCache.find(a => a.id === e.assinatura_id);
+      if (sig) assinHtml = `<div class="assinatura-bloco"><div class="assinatura-texto">
+        <div class="assinatura-nome-prof">${sig.nome}</div>
+        <div>${sig.titulo || ''}</div><div>${sig.registro || ''}</div>
+      </div></div>`;
+    }
+    return `<div class="evol-item">
+      <button class="evol-del" onclick="deletarEvolucao('${e.id}')" title="Excluir">✕</button>
+      <div class="evol-item-header">
+        <span class="evol-tipo-badge ${isT ? 'evol-tipo-t':'evol-tipo-p'}">
+          ${isT ? '🧑‍⚕️ Terapêutica' : '🧠 Psicológica'}
+        </span>
+        <span class="evol-data">📅 ${formatarData(e.data_evolucao)}</span>
+        ${e.hora_evolucao ? `<span class="evol-hora">🕐 ${e.hora_evolucao.slice(0,5)}</span>` : ''}
+        <span class="evol-prof" style="margin-left:auto;">👤 ${e.profissional || "—"}</span>
+      </div>
+      <div class="evol-texto">${e.descricao}</div>
+      ${assinHtml}
+    </div>`;
+  }).join("");
+}
+
+async function salvarEvolucao() {
+  const descricao = document.getElementById("descEvol").value.trim();
+  const profissional = document.getElementById("profEvol").value;
+  const data_evolucao = document.getElementById("dataEvol").value;
+  const hora_evolucao = document.getElementById("horaEvol").value || null;
+  const assinatura_id = document.getElementById("assinaturaEvol").value || null;
+  const fb = document.getElementById("feedbackEvol");
+  if (!descricao) { fb.textContent = "Descreva a evolução."; fb.style.color="#ef4444"; return; }
+  if (!data_evolucao) { fb.textContent = "Informe a data."; fb.style.color="#ef4444"; return; }
+  fb.textContent = "Salvando..."; fb.style.color="#64748b";
+  const { error } = await supabase.from("evolucoes").insert([{
+    instituicao_id: instituicaoId, paciente_id: pacienteSel.id,
+    data_evolucao, hora_evolucao, tipo: tipoEvol, descricao, profissional, assinatura_id
+  }]);
+  if (error) { fb.textContent = "Erro: " + error.message; fb.style.color="#ef4444"; return; }
+  document.getElementById("descEvol").value = "";
+  fb.textContent = "✅ Salvo!"; fb.style.color="#10b981";
+  setTimeout(() => fb.textContent = "", 2500);
+  await carregarEvolucoes();
+}
+
+async function deletarEvolucao(id) {
+  if (!confirm("Excluir esta evolução?")) return;
+  await supabase.from("evolucoes").delete().eq("id", id);
+  await carregarEvolucoes();
+}
+
+// ── EVOLUÇÃO DE PLANTÃO ──────────────────────────────────
+function setTurno(t, btn) {
+  turnoAtual = t;
+  document.querySelectorAll('.turno-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('turnoSel').value = t;
+}
+
+function setTurnoAuto(t) {
+  turnoAtual = t;
+  document.querySelectorAll('.turno-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('turno-' + t);
+  if (btn) btn.classList.add('active');
+  document.getElementById('turnoSel').value = t;
+}
+
+function setHumor(h, btn) {
+  humorAtual = h;
+  document.querySelectorAll('.humor-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('humorSel').value = h;
+}
+
+function setCrise(sim) {
+  criseAtual = sim;
+  document.getElementById('criseDescArea').style.display = sim ? '' : 'none';
+  document.getElementById('criseSimInput').checked = sim;
+  document.getElementById('criseNaoInput').checked = !sim;
+}
+
+function getComportamentos() {
+  const map = { compCoop:'Cooperativo', compIso:'Isolado', compAgit:'Agitado', compRecusa:'Recusa atividades', compSocial:'Sociável', compAnsioso:'Ansioso' };
+  return Object.entries(map).filter(([id]) => document.getElementById(id)?.checked).map(([,v]) => v);
+}
+
+async function salvarPlantao() {
+  const fb = document.getElementById('fbPlantao');
+  const data_plantao = document.getElementById('plantaoData').value;
+  const hora_plantao = document.getElementById('plantaoHora').value;
+  if (!data_plantao) { fb.textContent = 'Informe a data.'; fb.style.color = '#ef4444'; return; }
+  fb.textContent = 'Salvando...'; fb.style.color = '#64748b';
+
+  const dados = {
+    instituicao_id: instituicaoId,
+    paciente_id:    pacienteSel.id,
+    paciente_nome:  pacienteSel.nome,
+    data_plantao,
+    hora_plantao:   hora_plantao || null,
+    turno:          turnoAtual,
+    profissional:   document.getElementById('plantaoProf').value || null,
+    humor:          humorAtual || null,
+    comportamentos: getComportamentos(),
+    medicacao_administrada: document.getElementById('plantaoMed').value || null,
+    crise:          criseAtual,
+    crise_descricao: criseAtual ? document.getElementById('criseDesc').value : null,
+    interacao_social: document.getElementById('plantaoSocial').value || null,
+    observacoes:    document.getElementById('plantaoObs').value || null,
+  };
+
+  const { error } = await supabase.from('plantao_evolucao').insert([dados]);
+  if (error) { fb.textContent = 'Erro: ' + error.message; fb.style.color = '#ef4444'; return; }
+
+  // Limpar form
+  document.getElementById('plantaoProf').value = '';
+  document.getElementById('plantaoMed').value  = '';
+  document.getElementById('plantaoObs').value  = '';
+  document.getElementById('plantaoSocial').value = '';
+  document.getElementById('criseDesc').value   = '';
+  ['compCoop','compIso','compAgit','compRecusa','compSocial','compAnsioso'].forEach(id => {
+    document.getElementById(id).checked = false;
+  });
+  humorAtual = '';
+  criseAtual = false;
+  document.querySelectorAll('.humor-btn').forEach(b => b.classList.remove('active'));
+  setCrise(false);
+
+  fb.textContent = '✅ Salvo!'; fb.style.color = '#10b981';
+  setTimeout(() => fb.textContent = '', 2500);
+  if (typeof registrarLog === 'function')
+    registrarLog('criar', 'evolucao', pacienteSel.nome, `Evolução de plantão (${TURNO_LABELS[turnoAtual]}) registrada`);
+  await carregarPlantoes();
+}
+
+async function carregarPlantoes() {
+  if (!pacienteSel) return;
+  const filtroTurno = document.getElementById('filtroTurnoPlantao').value;
+  let query = supabase.from('plantao_evolucao').select('*')
+    .eq('paciente_id', pacienteSel.id)
+    .order('data_plantao', { ascending: false })
+    .order('hora_plantao', { ascending: false })
+    .limit(7);
+  if (filtroTurno) query = query.eq('turno', filtroTurno);
+  const { data } = await query;
+  const lista = data || [];
+
+  if (!lista.length) {
+    document.getElementById('listaPlantoes').innerHTML = `<div class="empty-evol">Nenhuma evolução de plantão registrada.</div>`;
+    return;
+  }
+
+  document.getElementById('listaPlantoes').innerHTML = lista.map(p => {
+    const comps = (p.comportamentos || []).join(', ') || '—';
+    return `<div class="plantao-item">
+      <div class="plantao-item-header">
+        <span class="turno-badge turno-${p.turno}">${TURNO_LABELS[p.turno]||p.turno}</span>
+        ${p.humor ? `<span class="humor-display" title="${HUMOR_LABELS[p.humor]||p.humor}">${HUMOR_LABELS[p.humor]?.split(' ')[0]||'😐'}</span>` : ''}
+        ${p.crise ? `<span class="crise-badge crise-sim">⚠️ Crise/Intercorrência</span>` : `<span class="crise-badge crise-nao">✅ Sem crises</span>`}
+        <span style="margin-left:auto;font-size:12px;color:var(--text-secondary);">📅 ${formatarData(p.data_plantao)} ${p.hora_plantao ? '· 🕐 '+p.hora_plantao.slice(0,5) : ''}</span>
+      </div>
+      <div class="plantao-meta">
+        ${p.profissional ? `<span>👤 ${p.profissional}</span>` : ''}
+        ${p.interacao_social ? `<span>🤝 ${SOCIAL_LABELS[p.interacao_social]||p.interacao_social}</span>` : ''}
+      </div>
+      <div class="plantao-grid-info">
+        <div class="plantao-info-bloco">
+          <div class="plantao-info-label">Comportamento</div>
+          <div>${comps}</div>
+        </div>
+        ${p.medicacao_administrada ? `<div class="plantao-info-bloco">
+          <div class="plantao-info-label">Medicação</div>
+          <div>${p.medicacao_administrada}</div>
+        </div>` : ''}
+        ${p.crise && p.crise_descricao ? `<div class="plantao-info-bloco" style="grid-column:1/-1;border-left:3px solid var(--danger);border-color:var(--danger);">
+          <div class="plantao-info-label" style="color:var(--danger);">Intercorrência</div>
+          <div>${p.crise_descricao}</div>
+        </div>` : ''}
+        ${p.observacoes ? `<div class="plantao-info-bloco" style="grid-column:1/-1;">
+          <div class="plantao-info-label">Observações</div>
+          <div>${p.observacoes}</div>
+        </div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── ASSINATURAS ──────────────────────────────────────────
+function abrirModalAssinaturas() {
+  renderListaSigs();
+  document.getElementById("modalAssinaturas").style.display = "flex";
+}
+function fecharModalAssinaturas() { document.getElementById("modalAssinaturas").style.display = "none"; }
+
+function renderListaSigs() {
+  const el = document.getElementById("listaSigs");
+  if (!assinaturasCache.length) {
+    el.innerHTML = `<p style="font-size:13px;color:#94a3b8;text-align:center;padding:12px;">Nenhuma assinatura cadastrada.</p>`;
+    return;
+  }
+  el.innerHTML = assinaturasCache.map(a => `
+    <div class="sig-card">
+      <div class="sig-info">
+        <div class="sig-nome">${a.nome}</div>
+        <div class="sig-titulo">${a.titulo || ''}</div>
+        <div class="sig-crt">${a.registro || ''}</div>
+      </div>
+      <button class="btn-small danger" onclick="excluirAssinatura('${a.id}')">Excluir</button>
+    </div>`).join("");
+}
+
+async function salvarAssinatura() {
+  const nome = document.getElementById("sigNome").value.trim();
+  const titulo = document.getElementById("sigTitulo").value.trim();
+  const registro = document.getElementById("sigRegistro").value.trim();
+  const fb = document.getElementById("fbSig");
+  if (!nome) { fb.textContent = "Informe o nome."; fb.style.color="#ef4444"; return; }
+  fb.textContent = "Salvando..."; fb.style.color="#64748b";
+  const { error } = await supabase.from("assinaturas_profissionais").insert([{
+    instituicao_id: instituicaoId, nome, titulo, registro
+  }]);
+  if (error) { fb.textContent = "Erro: " + error.message; fb.style.color="#ef4444"; return; }
+  fb.textContent = "✅ Salvo!"; fb.style.color="#10b981";
+  ["sigNome","sigTitulo","sigRegistro"].forEach(id => document.getElementById(id).value = "");
+  await carregarAssinaturas();
+  renderListaSigs();
+  setTimeout(() => fb.textContent = "", 2000);
+}
+
+async function excluirAssinatura(id) {
+  if (!confirm("Excluir esta assinatura?")) return;
+  await supabase.from("assinaturas_profissionais").delete().eq("id", id);
+  await carregarAssinaturas();
+  renderListaSigs();
+}
+
+function formatarData(iso) {
+  if (!iso) return "—";
+  const [a,m,d] = iso.split("-");
+  return `${d}/${m}/${a}`;
+}
+
+iniciar();
+</script>
+</body>
+</html>

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Funcionários — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+<!--
+  TABELAS USADAS NESTE ARQUIVO:
+  - usuarios:      id, instituicao_id
+  - funcionarios:  id, instituicao_id, nome, cargo, email, telefone, ativo,
+                   perm_pacientes, perm_financeiro, perm_documentos,
+                   perm_enfermagem, perm_evolucoes, perm_admin
+-->
+<style>
+.func-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.func-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  overflow: hidden; transition: all .18s;
+}
+.func-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.func-card-header { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+.func-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+.func-nome { font-weight: 700; font-size: 14px; }
+.func-cargo { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.func-body { padding: 14px 18px; }
+.func-perm-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-secondary); margin-bottom: 8px; }
+.perms-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.perm-chip {
+  padding: 3px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 500;
+}
+.perm-on  { background: #ecfdf5; color: #065f46; }
+.perm-off { background: var(--bg); color: var(--text-muted); text-decoration: line-through; }
+.func-footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+
+/* Form modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
+  backdrop-filter: blur(2px);
+}
+.modal-box {
+  background: white; border-radius: var(--radius-xl); width: 100%; max-width: 540px;
+  box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto;
+}
+.modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-secondary); padding: 4px; }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+
+.perm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
+.perm-toggle { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--border); cursor: pointer; transition: all .15s; user-select: none; font-size: 13px; }
+.perm-toggle:hover { border-color: var(--primary); }
+.perm-toggle input { accent-color: var(--primary); width: 16px; height: 16px; }
+
+.cargos_badge = {
+  terapeuta: 'badge-info', psicologo: 'badge-info',
+  enfermeiro: 'badge-success', administrativo: 'badge-warning', outro: ''
+};
+</style>
+</head>
+<body>
+
+<div class="sidebar"></div>
+
+<div class="content">
+
+  <div class="header-page">
+    <div>
+      <h1>Funcionários</h1>
+      <p class="page-subtitle" id="countFunc">Carregando...</p>
+    </div>
+    <button class="btn-primary" onclick="abrirModal()">+ Novo Funcionário</button>
+  </div>
+
+  <div class="filtros">
+    <input type="text" id="filtroNome" placeholder="🔍 Buscar..." oninput="aplicarFiltro()">
+    <select id="filtroCargo" onchange="aplicarFiltro()">
+      <option value="">Todos os cargos</option>
+      <option value="terapeuta">Terapeuta</option>
+      <option value="psicologo">Psicólogo</option>
+      <option value="enfermeiro">Enfermeiro</option>
+      <option value="administrativo">Administrativo</option>
+      <option value="outro">Outro</option>
+    </select>
+    <select id="filtroAtivo" onchange="aplicarFiltro()">
+      <option value="">Todos</option>
+      <option value="true">Ativos</option>
+      <option value="false">Inativos</option>
+    </select>
+  </div>
+
+  <div class="func-grid" id="listaFunc"></div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="modalTitulo">Novo Funcionário</h2>
+      <button class="modal-close" onclick="fecharModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nome completo *</label>
+          <input type="text" id="fNome" placeholder="Nome do funcionário">
+        </div>
+        <div class="form-group">
+          <label>Cargo</label>
+          <select id="fCargo">
+            <option value="terapeuta">Terapeuta</option>
+            <option value="psicologo">Psicólogo</option>
+            <option value="enfermeiro">Enfermeiro</option>
+            <option value="administrativo">Administrativo</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="fEmail" placeholder="email@exemplo.com">
+        </div>
+        <div class="form-group">
+          <label>Telefone</label>
+          <input type="text" id="fTelefone" placeholder="(11) 99999-9999">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="fAtivo">
+          <option value="true">✅ Ativo</option>
+          <option value="false">❌ Inativo</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-top:4px;">
+        <label>🔐 Permissões de Acesso</label>
+        <div class="perm-grid">
+          <label class="perm-toggle"><input type="checkbox" id="pPacientes" checked> 👤 Pacientes</label>
+          <label class="perm-toggle"><input type="checkbox" id="pEvolucoes" checked> 📝 Evoluções</label>
+          <label class="perm-toggle"><input type="checkbox" id="pEnfermagem"> 💊 Enfermagem</label>
+          <label class="perm-toggle"><input type="checkbox" id="pDocumentos" checked> 📄 Documentos</label>
+          <label class="perm-toggle"><input type="checkbox" id="pFinanceiro"> 💰 Financeiro</label>
+          <label class="perm-toggle"><input type="checkbox" id="pAdmin"> ⚙️ Administração</label>
+        </div>
+        <p style="font-size:11.5px;color:#94a3b8;margin-top:8px;">As permissões são registradas como referência — o controle de acesso completo depende de autenticação individual futura.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="salvarFuncionario()">💾 Salvar</button>
+      <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
+      <span id="fbFunc" style="font-size:13px;color:#64748b;margin-left:8px;"></span>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script src="sidebar.js"></script>
+<script>
+let instituicaoId = null;
+let funcCache = [];
+let editandoId = null;
+
+async function iniciar() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = "index.html"; return; }
+  const { data: usuario } = await supabase
+    .from("usuarios").select("instituicao_id").eq("id", session.user.id).single();
+  if (!usuario) return;
+  instituicaoId = usuario.instituicao_id;
+  await carregarFuncionarios();
+}
+
+async function carregarFuncionarios() {
+  const { data } = await supabase.from("funcionarios").select("*")
+    .eq("instituicao_id", instituicaoId).order("nome");
+  funcCache = data || [];
+  renderFuncionarios(funcCache);
+}
+
+const PERMS_LABELS = {
+  perm_pacientes:'👤 Pacientes', perm_evolucoes:'📝 Evoluções',
+  perm_enfermagem:'💊 Enfermagem', perm_documentos:'📄 Documentos',
+  perm_financeiro:'💰 Financeiro', perm_admin:'⚙️ Admin'
+};
+
+const CARGO_BADGES = {
+  terapeuta:'badge-info', psicologo:'badge-info',
+  enfermeiro:'badge-success', administrativo:'badge-warning', outro:'badge-info'
+};
+
+function renderFuncionarios(lista) {
+  const ativos = lista.filter(f => f.ativo).length;
+  document.getElementById("countFunc").textContent =
+    `${lista.length} funcionário${lista.length!==1?'s':''} · ${ativos} ativo${ativos!==1?'s':''}`;
+
+  if (lista.length === 0) {
+    document.getElementById("listaFunc").innerHTML =
+      `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">👥</div><h3>Nenhum funcionário cadastrado</h3><p>Adicione o primeiro funcionário.</p></div>`;
+    return;
+  }
+
+  document.getElementById("listaFunc").innerHTML = lista.map(f => {
+    const ini = f.nome.split(" ").slice(0,2).map(n=>n[0]).join("").toUpperCase();
+    const permsHtml = Object.entries(PERMS_LABELS).map(([k,l]) =>
+      `<span class="perm-chip ${f[k] ? 'perm-on' : 'perm-off'}">${l}</span>`
+    ).join("");
+    const cargo = { terapeuta:'Terapeuta', psicologo:'Psicólogo', enfermeiro:'Enfermeiro', administrativo:'Administrativo', outro:'Outro' }[f.cargo] || f.cargo;
+    const badgeCls = CARGO_BADGES[f.cargo] || 'badge-info';
+    return `<div class="func-card">
+      <div class="func-card-header">
+        <div class="func-avatar">${ini}</div>
+        <div>
+          <div class="func-nome">${f.nome}</div>
+          <div style="margin-top:3px;">
+            <span class="badge ${badgeCls}">${cargo}</span>
+            ${!f.ativo ? `<span class="badge badge-danger" style="margin-left:4px;">Inativo</span>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="func-body">
+        ${f.email ? `<div style="font-size:12.5px;color:#64748b;margin-bottom:4px;">📧 ${f.email}</div>` : ''}
+        ${f.telefone ? `<div style="font-size:12.5px;color:#64748b;margin-bottom:8px;">📞 ${f.telefone}</div>` : ''}
+        <div class="func-perm-label">Permissões</div>
+        <div class="perms-list">${permsHtml}</div>
+      </div>
+      <div class="func-footer">
+        <button class="btn-small primary" onclick="editarFuncionario('${f.id}')">✏️ Editar</button>
+        <button class="btn-small danger" onclick="excluirFuncionario('${f.id}')">Excluir</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function aplicarFiltro() {
+  const nome  = document.getElementById("filtroNome").value.toLowerCase();
+  const cargo = document.getElementById("filtroCargo").value;
+  const ativo = document.getElementById("filtroAtivo").value;
+  let f = funcCache.filter(f => f.nome.toLowerCase().includes(nome));
+  if (cargo) f = f.filter(fn => fn.cargo === cargo);
+  if (ativo !== "") f = f.filter(fn => String(fn.ativo) === ativo);
+  renderFuncionarios(f);
+}
+
+function abrirModal() {
+  editandoId = null;
+  document.getElementById("modalTitulo").textContent = "Novo Funcionário";
+  ["fNome","fEmail","fTelefone"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("fCargo").value  = "terapeuta";
+  document.getElementById("fAtivo").value  = "true";
+  document.getElementById("pPacientes").checked  = true;
+  document.getElementById("pEvolucoes").checked   = true;
+  document.getElementById("pEnfermagem").checked  = false;
+  document.getElementById("pDocumentos").checked  = true;
+  document.getElementById("pFinanceiro").checked  = false;
+  document.getElementById("pAdmin").checked       = false;
+  document.getElementById("fbFunc").textContent   = "";
+  document.getElementById("modal").style.display  = "flex";
+}
+
+function editarFuncionario(id) {
+  editandoId = id;
+  const f = funcCache.find(fn => fn.id === id);
+  if (!f) return;
+  document.getElementById("modalTitulo").textContent = "Editar Funcionário";
+  document.getElementById("fNome").value     = f.nome || "";
+  document.getElementById("fEmail").value    = f.email || "";
+  document.getElementById("fTelefone").value = f.telefone || "";
+  document.getElementById("fCargo").value    = f.cargo || "outro";
+  document.getElementById("fAtivo").value    = String(f.ativo);
+  document.getElementById("pPacientes").checked  = !!f.perm_pacientes;
+  document.getElementById("pEvolucoes").checked   = !!f.perm_evolucoes;
+  document.getElementById("pEnfermagem").checked  = !!f.perm_enfermagem;
+  document.getElementById("pDocumentos").checked  = !!f.perm_documentos;
+  document.getElementById("pFinanceiro").checked  = !!f.perm_financeiro;
+  document.getElementById("pAdmin").checked       = !!f.perm_admin;
+  document.getElementById("fbFunc").textContent   = "";
+  document.getElementById("modal").style.display  = "flex";
+}
+
+function fecharModal() { document.getElementById("modal").style.display = "none"; }
+
+async function salvarFuncionario() {
+  const nome = document.getElementById("fNome").value.trim();
+  const fb   = document.getElementById("fbFunc");
+  if (!nome) { fb.textContent = "Informe o nome."; fb.style.color="#ef4444"; return; }
+
+  fb.textContent = "Salvando..."; fb.style.color="#64748b";
+
+  const dados = {
+    instituicao_id:   instituicaoId,
+    nome,
+    cargo:            document.getElementById("fCargo").value,
+    email:            document.getElementById("fEmail").value,
+    telefone:         document.getElementById("fTelefone").value,
+    ativo:            document.getElementById("fAtivo").value === "true",
+    perm_pacientes:   document.getElementById("pPacientes").checked,
+    perm_evolucoes:   document.getElementById("pEvolucoes").checked,
+    perm_enfermagem:  document.getElementById("pEnfermagem").checked,
+    perm_documentos:  document.getElementById("pDocumentos").checked,
+    perm_financeiro:  document.getElementById("pFinanceiro").checked,
+    perm_admin:       document.getElementById("pAdmin").checked,
+  };
+
+  let error;
+  if (editandoId) {
+    ({ error } = await supabase.from("funcionarios").update(dados).eq("id", editandoId));
+  } else {
+    ({ error } = await supabase.from("funcionarios").insert([dados]));
+  }
+
+  if (error) { fb.textContent = "Erro: " + error.message; fb.style.color="#ef4444"; return; }
+  fecharModal();
+  await carregarFuncionarios();
+}
+
+async function excluirFuncionario(id) {
+  if (!confirm("Excluir este funcionário?")) return;
+  await supabase.from("funcionarios").delete().eq("id", id);
+  await carregarFuncionarios();
+}
+
+iniciar();
+</script>
+</body>
+</html>

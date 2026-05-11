@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Agenda — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+<style>
+/* ── Agenda Layout ── */
+.agenda-layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+@media (max-width: 900px) { .agenda-layout { grid-template-columns: 1fr; } }
+
+/* ── Mini Calendário ── */
+.mini-cal {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.mini-cal-header {
+  padding: 14px 16px; background: var(--primary);
+  display: flex; align-items: center; justify-content: space-between; color: white;
+}
+.mini-cal-header button {
+  background: rgba(255,255,255,.2); border: none; color: white;
+  border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 14px; transition: background .14s;
+}
+.mini-cal-header button:hover { background: rgba(255,255,255,.35); }
+.mini-cal-mes { font-weight: 700; font-size: 15px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); }
+.cal-dow { text-align: center; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--text-secondary); padding: 10px 0 6px; }
+.cal-day {
+  text-align: center; padding: 6px 2px; font-size: 13px; cursor: pointer;
+  border-radius: 6px; margin: 2px; transition: all .14s; position: relative;
+  line-height: 1.8;
+}
+.cal-day:hover:not(.vazio) { background: var(--primary-light); color: var(--primary); }
+.cal-day.hoje { background: var(--primary); color: white; font-weight: 700; border-radius: 8px; }
+.cal-day.selecionado { background: var(--primary-light); color: var(--primary); font-weight: 700; outline: 2px solid var(--primary); border-radius: 8px; }
+.cal-day.tem-evento::after {
+  content: ''; position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
+  width: 5px; height: 5px; border-radius: 50%; background: var(--warning);
+}
+.cal-day.hoje.tem-evento::after { background: white; }
+.cal-day.vazio { cursor: default; }
+.cal-day.outro-mes { color: var(--text-muted); }
+
+/* ── Painel lateral ── */
+.agenda-side {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; margin-top: 14px;
+}
+.agenda-side-header { padding: 13px 16px; background: var(--bg); border-bottom: 1px solid var(--border); font-weight: 600; font-size: 13.5px; }
+.pac-busca-list { max-height: 280px; overflow-y: auto; }
+.pac-busca-item {
+  padding: 10px 16px; cursor: pointer; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; transition: background .12s; font-size: 13px;
+}
+.pac-busca-item:hover { background: var(--bg); }
+.pac-ini-sm { width: 28px; height: 28px; border-radius: 50%; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+
+/* ── Área principal ── */
+.agenda-main { display: flex; flex-direction: column; gap: 16px; }
+
+.agenda-header-dia {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm); padding: 16px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.agenda-dia-titulo { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; font-weight: 700; }
+.agenda-dia-sub { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+.timeline { display: flex; flex-direction: column; gap: 0; }
+.hour-slot {
+  display: grid; grid-template-columns: 60px 1fr; min-height: 54px;
+  border-bottom: 1px solid var(--border);
+}
+.hour-slot:last-child { border-bottom: none; }
+.hour-label {
+  padding: 8px 12px 0; font-size: 11.5px; color: var(--text-muted); font-weight: 500;
+  border-right: 1px solid var(--border); background: var(--bg); text-align: right;
+}
+.hour-events { padding: 6px 12px; display: flex; flex-direction: column; gap: 4px; }
+
+.evento-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--primary-light); border: 1px solid #bfdbfe;
+  border-left: 4px solid var(--primary); border-radius: var(--radius-sm);
+  padding: 6px 10px; font-size: 12.5px; cursor: pointer;
+  transition: all .14s;
+}
+.evento-pill:hover { box-shadow: var(--shadow-sm); transform: translateX(2px); }
+.evento-pill.tipo-p { background: #fdf4ff; border-color: #e9d5ff; border-left-color: #7c3aed; }
+.evento-pill.tipo-g { background: #ecfdf5; border-color: #a7f3d0; border-left-color: #059669; }
+.evento-pill.tipo-o { background: #fffbeb; border-color: #fde68a; border-left-color: #d97706; }
+.evento-nome { font-weight: 600; flex: 1; }
+.evento-prof { font-size: 11px; color: var(--text-secondary); }
+.evento-del { background: none; border: none; cursor: pointer; font-size: 13px; color: var(--text-muted); padding: 2px 4px; border-radius: 4px; transition: all .12s; }
+.evento-del:hover { background: var(--danger-light); color: var(--danger); }
+
+.hora-atual-line {
+  position: relative; grid-column: 1/-1;
+  height: 2px; background: var(--danger); margin: 0 12px;
+}
+.hora-atual-line::before {
+  content: ''; position: absolute; left: -5px; top: -4px;
+  width: 10px; height: 10px; border-radius: 50%; background: var(--danger);
+}
+
+/* ── Modal Novo Evento ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(2px); }
+.modal-box { background: white; border-radius: var(--radius-xl); width: 100%; max-width: 480px; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; }
+.modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-secondary); }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+
+/* ── Semana view ── */
+.semana-grid {
+  display: grid; grid-template-columns: 60px repeat(7,1fr);
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.semana-header { background: var(--bg); border-bottom: 1px solid var(--border); padding: 10px 6px; text-align: center; font-size: 12px; font-weight: 600; }
+.semana-header.hoje { background: var(--primary); color: white; }
+.semana-cell { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-height: 40px; padding: 3px; }
+.semana-cell.hoje-col { background: #eff6ff; }
+.semana-hora { font-size: 11px; color: var(--text-muted); text-align: right; padding: 4px 8px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+/* ── Chips de tipo ── */
+.tipo-chip { display:inline-block; padding:2px 8px; border-radius:99px; font-size:11px; font-weight:600; }
+.chip-t { background:#eff6ff;color:#1d4ed8; }
+.chip-p { background:#fdf4ff;color:#7c3aed; }
+.chip-g { background:#ecfdf5;color:#065f46; }
+.chip-o { background:#fffbeb;color:#92400e; }
+
+/* View tabs */
+.view-tabs { display: flex; gap: 4px; }
+.view-tab {
+  padding: 7px 14px; font-size: 12.5px; font-weight: 500;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  cursor: pointer; background: var(--bg); color: var(--text-secondary);
+  font-family: 'Inter', sans-serif; transition: all .14s;
+}
+.view-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="sidebar"></div>
+<div class="content">
+
+  <div class="header-page">
+    <div>
+      <h1>Agenda de Sessões</h1>
+      <p class="page-subtitle">Agendamentos de terapias e atendimentos</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div class="view-tabs">
+        <button class="view-tab active" onclick="setView('dia',this)">📅 Dia</button>
+        <button class="view-tab" onclick="setView('semana',this)">📆 Semana</button>
+      </div>
+      <button class="btn-primary" onclick="abrirModal()">+ Nova Sessão</button>
+    </div>
+  </div>
+
+  <div class="agenda-layout">
+
+    <!-- Coluna esquerda -->
+    <div>
+      <!-- Mini calendário -->
+      <div class="mini-cal">
+        <div class="mini-cal-header">
+          <button onclick="navMes(-1)">◀</button>
+          <span class="mini-cal-mes" id="miniCalMes">—</span>
+          <button onclick="navMes(1)">▶</button>
+        </div>
+        <div style="padding:0 8px 8px;">
+          <div class="cal-grid" id="calDow"></div>
+          <div class="cal-grid" id="calDias"></div>
+        </div>
+      </div>
+
+      <!-- Filtro por profissional -->
+      <div class="agenda-side">
+        <div class="agenda-side-header">🔍 Filtrar</div>
+        <div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px;">
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:12px;">Profissional</label>
+            <select id="filtroProfAgenda" style="height:34px;font-size:13px;padding:0 10px;" onchange="renderView()">
+              <option value="">Todos</option>
+              <option value="Lincoln">Lincoln</option>
+              <option value="Peterson">Peterson</option>
+              <option value="Guerra">Guerra</option>
+              <option value="Daniela">Daniela</option>
+              <option value="Luciano">Luciano</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size:12px;">Tipo de Sessão</label>
+            <select id="filtroTipoAgenda" style="height:34px;font-size:13px;padding:0 10px;" onchange="renderView()">
+              <option value="">Todos</option>
+              <option value="terapeutica">🧑‍⚕️ Terapêutica</option>
+              <option value="psicologica">🧠 Psicológica</option>
+              <option value="grupo">👥 Grupo</option>
+              <option value="outro">📋 Outro</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumo do dia -->
+      <div class="agenda-side" style="margin-top:14px;">
+        <div class="agenda-side-header">📊 Resumo do Dia</div>
+        <div id="resumoDia" style="padding:14px 16px;font-size:13px;color:var(--text-secondary);">Carregando...</div>
+      </div>
+    </div>
+
+    <!-- Área principal -->
+    <div class="agenda-main">
+      <div class="agenda-header-dia">
+        <div>
+          <div class="agenda-dia-titulo" id="tituloDia">—</div>
+          <div class="agenda-dia-sub" id="subtituloDia">—</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-secondary" onclick="navDia(-1)">◀ Anterior</button>
+          <button class="btn-secondary" onclick="irHoje()">Hoje</button>
+          <button class="btn-secondary" onclick="navDia(1)">Próximo ▶</button>
+        </div>
+      </div>
+
+      <div id="viewDia">
+        <!-- Timeline do dia -->
+        <div class="table-wrapper">
+          <div class="card-header">
+            <span class="card-title">🕐 Timeline do Dia</span>
+            <span id="countEventosDia" style="font-size:12px;color:var(--text-secondary);"></span>
+          </div>
+          <div class="timeline" id="timeline"></div>
+        </div>
+      </div>
+
+      <div id="viewSemana" style="display:none;">
+        <div class="semana-grid" id="semanaGrid"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal Novo Evento -->
+<div class="modal-overlay" id="modalEvento" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>📅 Nova Sessão</h2>
+      <button class="modal-close" onclick="fecharModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Data *</label>
+          <input type="date" id="evData">
+        </div>
+        <div class="form-group">
+          <label>Horário *</label>
+          <input type="time" id="evHora">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Duração (minutos)</label>
+        <select id="evDuracao">
+          <option value="30">30 min</option>
+          <option value="45">45 min</option>
+          <option value="60" selected>60 min</option>
+          <option value="90">90 min</option>
+          <option value="120">2 horas</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Paciente</label>
+        <input type="text" id="evPacBusca" placeholder="Buscar paciente..." oninput="buscarPacAgenda()" autocomplete="off">
+        <div id="evPacDropdown" style="display:none;border:1px solid var(--border);border-radius:var(--radius-md);max-height:160px;overflow-y:auto;background:white;margin-top:4px;box-shadow:var(--shadow-md);position:absolute;z-index:999;width:calc(100% - 48px);"></div>
+        <input type="hidden" id="evPacId">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo de Sessão</label>
+          <select id="evTipo">
+            <option value="terapeutica">🧑‍⚕️ Terapêutica</option>
+            <option value="psicologica">🧠 Psicológica</option>
+            <option value="grupo">👥 Grupo</option>
+            <option value="outro">📋 Outro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Profissional</label>
+          <select id="evProf">
+            <option value="">Nenhum</option>
+            <option value="Lincoln">Lincoln</option>
+            <option value="Peterson">Peterson</option>
+            <option value="Guerra">Guerra</option>
+            <option value="Daniela">Daniela</option>
+            <option value="Luciano">Luciano</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Observações</label>
+        <textarea id="evObs" rows="2" placeholder="Notas da sessão..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Recorrência</label>
+        <select id="evRecorrencia">
+          <option value="unica">Sessão única</option>
+          <option value="semanal">Toda semana (4x)</option>
+          <option value="quinzenal">Quinzenal (4x)</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="salvarEvento()">💾 Salvar</button>
+      <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
+      <span id="fbEvento" style="font-size:13px;color:#64748b;margin-left:8px;"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Ver Evento -->
+<div class="modal-overlay" id="modalVerEvento" style="display:none;">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="modal-header">
+      <h2 id="verEvTitulo">Sessão</h2>
+      <button class="modal-close" onclick="document.getElementById('modalVerEvento').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body" id="verEvBody"></div>
+    <div class="modal-footer">
+      <button class="btn-small danger" id="verEvDel" onclick="">Excluir</button>
+      <button class="btn-secondary" onclick="document.getElementById('modalVerEvento').style.display='none'">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script src="sidebar.js"></script>
+<script>
+let instituicaoId = null;
+let diaSel = new Date();
+diaSel.setHours(0,0,0,0);
+let calMes = new Date(diaSel.getFullYear(), diaSel.getMonth(), 1);
+let eventosCache = [];
+let pacientesCache = [];
+let viewAtual = 'dia';
+
+const DIAS_PT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+const TIPO_LABELS = { terapeutica:'🧑‍⚕️ Terapêutica', psicologica:'🧠 Psicológica', grupo:'👥 Grupo', outro:'📋 Outro' };
+const TIPO_CLS   = { terapeutica:'tipo-t', psicologica:'tipo-p', grupo:'tipo-g', outro:'tipo-o' };
+const PILL_CLS   = { terapeutica:'', psicologica:'tipo-p', grupo:'tipo-g', outro:'tipo-o' };
+
+const HORAS = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
+
+async function iniciar() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  const { data: u } = await supabase.from('usuarios').select('instituicao_id').eq('id',session.user.id).single();
+  if (!u) return;
+  instituicaoId = u.instituicao_id;
+
+  const { data: pacs } = await supabase.from('pacientes').select('id,nome')
+    .eq('instituicao_id', instituicaoId).is('data_desligamento',null).order('nome');
+  pacientesCache = pacs || [];
+
+  renderMiniCal();
+  await carregarEventos();
+}
+
+// ─── MINI CALENDÁRIO ───────────────────────────────────
+function renderMiniCal() {
+  const mes = calMes.getMonth(); const ano = calMes.getFullYear();
+  document.getElementById('miniCalMes').textContent = `${MESES_PT[mes]} ${ano}`;
+
+  const dows = document.getElementById('calDow');
+  dows.innerHTML = DIAS_PT.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+
+  const primeiroDia = new Date(ano, mes, 1).getDay();
+  const ultimoDia   = new Date(ano, mes+1, 0).getDate();
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+
+  let html = '';
+  for (let i=0; i<primeiroDia; i++) html += `<div class="cal-day vazio"></div>`;
+  for (let d=1; d<=ultimoDia; d++) {
+    const dt = new Date(ano, mes, d);
+    const isHoje = dt.getTime()===hoje.getTime();
+    const isSel  = dt.getTime()===diaSel.getTime();
+    const temEv  = eventosCache.some(e => e.data_evento === isoDate(dt));
+    html += `<div class="cal-day${isHoje?' hoje':''}${isSel&&!isHoje?' selecionado':''}${temEv?' tem-evento':''}" onclick="selecionarDia(${ano},${mes},${d})">${d}</div>`;
+  }
+  document.getElementById('calDias').innerHTML = html;
+}
+
+function navMes(dir) {
+  calMes.setMonth(calMes.getMonth()+dir);
+  renderMiniCal();
+}
+
+function selecionarDia(a,m,d) {
+  diaSel = new Date(a,m,d);
+  renderMiniCal();
+  renderView();
+}
+
+function irHoje() {
+  diaSel = new Date(); diaSel.setHours(0,0,0,0);
+  calMes = new Date(diaSel.getFullYear(), diaSel.getMonth(), 1);
+  renderMiniCal(); renderView();
+}
+
+function navDia(dir) {
+  diaSel.setDate(diaSel.getDate()+dir);
+  calMes = new Date(diaSel.getFullYear(), diaSel.getMonth(), 1);
+  renderMiniCal(); renderView();
+}
+
+// ─── CARREGAR EVENTOS ──────────────────────────────────
+async function carregarEventos() {
+  // Carrega eventos do mês atual e adjacentes para o mini-cal
+  const inicio = new Date(calMes.getFullYear(), calMes.getMonth()-1, 1);
+  const fim    = new Date(calMes.getFullYear(), calMes.getMonth()+2, 0);
+  const { data } = await supabase.from('agenda_sessoes').select('*')
+    .eq('instituicao_id', instituicaoId)
+    .gte('data_evento', isoDate(inicio)).lte('data_evento', isoDate(fim))
+    .order('data_evento').order('hora_inicio');
+  eventosCache = data || [];
+  renderMiniCal();
+  renderView();
+}
+
+// ─── RENDER VIEWS ──────────────────────────────────────
+function setView(v, btn) {
+  viewAtual = v;
+  document.querySelectorAll('.view-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('viewDia').style.display    = v==='dia'    ? '' : 'none';
+  document.getElementById('viewSemana').style.display = v==='semana' ? '' : 'none';
+  renderView();
+}
+
+function renderView() {
+  if (viewAtual==='dia')    renderDia();
+  else                      renderSemana();
+}
+
+function renderDia() {
+  const iso = isoDate(diaSel);
+  const diaFmt = diaSel.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('tituloDia').textContent  = diaFmt.charAt(0).toUpperCase()+diaFmt.slice(1);
+
+  const filtroPro  = document.getElementById('filtroProfAgenda').value;
+  const filtroTipo = document.getElementById('filtroTipoAgenda').value;
+
+  const eventos = eventosCache.filter(e => {
+    if (e.data_evento !== iso) return false;
+    if (filtroPro  && e.profissional !== filtroPro)  return false;
+    if (filtroTipo && e.tipo !== filtroTipo)          return false;
+    return true;
+  });
+
+  document.getElementById('countEventosDia').textContent = `${eventos.length} sessão${eventos.length!==1?'ões':''}`;
+  document.getElementById('subtituloDia').textContent     = `${eventos.length} sessão${eventos.length!==1?'ões':''} agendada${eventos.length!==1?'s':''}`;
+
+  // Resumo
+  const tipos = {};
+  eventos.forEach(e => { tipos[e.tipo] = (tipos[e.tipo]||0)+1; });
+  const resumoHtml = Object.entries(tipos).length
+    ? Object.entries(tipos).map(([t,c])=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);">${TIPO_LABELS[t]||t}<strong>${c}</strong></div>`).join('')
+    : '<div style="color:var(--text-muted);">Nenhuma sessão hoje.</div>';
+  document.getElementById('resumoDia').innerHTML = resumoHtml;
+
+  const tl = document.getElementById('timeline');
+  const agora = new Date();
+  const horaAtual = agora.getHours()+':'+String(agora.getMinutes()).padStart(2,'0');
+
+  let html = '';
+  HORAS.forEach(h => {
+    const evsDaHora = eventos.filter(e => e.hora_inicio && e.hora_inicio.slice(0,5)===h);
+    const isAgoraSlot = iso===isoDate(agora) && h===HORAS.find(hr=>parseInt(hr)===agora.getHours());
+    html += `<div class="hour-slot">
+      <div class="hour-label">${h}</div>
+      <div class="hour-events" ondblclick="abrirModalComHora('${iso}','${h}')">
+        ${evsDaHora.map(e=>`
+          <div class="evento-pill ${PILL_CLS[e.tipo]||''}" onclick="verEvento('${e.id}')">
+            <div style="flex:1;">
+              <div class="evento-nome">${e.paciente_nome||'Sessão'}</div>
+              <div class="evento-prof">${e.profissional||''} · ${TIPO_LABELS[e.tipo]||e.tipo} · ${e.duracao_minutos||60}min</div>
+            </div>
+            <button class="evento-del" onclick="event.stopPropagation();deletarEvento('${e.id}')">✕</button>
+          </div>`).join('')}
+        ${!evsDaHora.length?`<div style="color:var(--border);font-size:11px;padding:2px 0;cursor:pointer;" ondblclick="abrirModalComHora('${iso}','${h}')">+ sessão</div>`:''}
+      </div>
+    </div>`;
+  });
+  tl.innerHTML = html;
+}
+
+function renderSemana() {
+  const seg = new Date(diaSel);
+  seg.setDate(diaSel.getDate() - diaSel.getDay() + 1); // Segunda-feira
+  
+  const filtroPro  = document.getElementById('filtroProfAgenda').value;
+  const filtroTipo = document.getElementById('filtroTipoAgenda').value;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  
+  let html = `<div class="semana-hora" style="background:var(--bg);">Hora</div>`;
+  const dias = [];
+  for (let i=0;i<7;i++) {
+    const d = new Date(seg); d.setDate(seg.getDate()+i);
+    dias.push(d);
+    const isHj = d.getTime()===hoje.getTime();
+    const dFmt = `${DIAS_PT[d.getDay()]}<br><strong>${d.getDate()}</strong>`;
+    html += `<div class="semana-header${isHj?' hoje':''}">${dFmt}</div>`;
+  }
+  
+  HORAS.forEach(h => {
+    html += `<div class="semana-hora">${h}</div>`;
+    dias.forEach(d => {
+      const iso = isoDate(d);
+      const isHj = d.getTime()===hoje.getTime();
+      const evs = eventosCache.filter(e=>{
+        if (e.data_evento!==iso || (e.hora_inicio||'').slice(0,5)!==h) return false;
+        if (filtroPro  && e.profissional!==filtroPro) return false;
+        if (filtroTipo && e.tipo!==filtroTipo)         return false;
+        return true;
+      });
+      html += `<div class="semana-cell${isHj?' hoje-col':''}" style="padding:3px;font-size:11px;">
+        ${evs.map(e=>`<div class="evento-pill ${PILL_CLS[e.tipo]||''}" style="font-size:11px;padding:3px 6px;margin-bottom:2px;cursor:pointer;" onclick="verEvento('${e.id}')">
+          <div style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:90px;">${e.paciente_nome||'Sessão'}</div>
+        </div>`).join('')}
+      </div>`;
+    });
+  });
+  document.getElementById('semanaGrid').innerHTML = html;
+  
+  // Atualiza título
+  const fim = new Date(seg); fim.setDate(seg.getDate()+6);
+  document.getElementById('tituloDia').textContent = `${seg.getDate()}/${seg.getMonth()+1} – ${fim.getDate()}/${fim.getMonth()+1}`;
+  document.getElementById('subtituloDia').textContent = 'Visão da semana';
+}
+
+// ─── MODAL EVENTO ──────────────────────────────────────
+function abrirModal(dataPreSet, horaPreSet) {
+  document.getElementById('evData').value = dataPreSet || isoDate(diaSel);
+  document.getElementById('evHora').value = horaPreSet || '09:00';
+  document.getElementById('evPacBusca').value = '';
+  document.getElementById('evPacId').value    = '';
+  document.getElementById('evObs').value      = '';
+  document.getElementById('evRecorrencia').value = 'unica';
+  document.getElementById('fbEvento').textContent = '';
+  document.getElementById('modalEvento').style.display = 'flex';
+}
+
+function abrirModalComHora(data, hora) {
+  abrirModal(data, hora);
+}
+
+function fecharModal() { document.getElementById('modalEvento').style.display = 'none'; }
+
+function buscarPacAgenda() {
+  const q = document.getElementById('evPacBusca').value.toLowerCase();
+  const dd = document.getElementById('evPacDropdown');
+  if (!q) { dd.style.display = 'none'; return; }
+  const res = pacientesCache.filter(p=>p.nome.toLowerCase().includes(q)).slice(0,8);
+  if (!res.length) { dd.style.display='none'; return; }
+  dd.innerHTML = res.map(p=>`<div style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);" onmousedown="selecionarPacAgenda('${p.id}','${p.nome.replace(/'/g,"\\'")}')">👤 ${p.nome}</div>`).join('');
+  dd.style.display = 'block';
+}
+
+function selecionarPacAgenda(id, nome) {
+  document.getElementById('evPacId').value = id;
+  document.getElementById('evPacBusca').value = nome;
+  document.getElementById('evPacDropdown').style.display = 'none';
+}
+
+async function salvarEvento() {
+  const fb = document.getElementById('fbEvento');
+  const data = document.getElementById('evData').value;
+  const hora = document.getElementById('evHora').value;
+  const pacId = document.getElementById('evPacId').value;
+  const pacNome = document.getElementById('evPacBusca').value;
+  const tipo = document.getElementById('evTipo').value;
+  const prof = document.getElementById('evProf').value;
+  const duracao = parseInt(document.getElementById('evDuracao').value)||60;
+  const obs  = document.getElementById('evObs').value;
+  const recorrencia = document.getElementById('evRecorrencia').value;
+
+  if (!data || !hora) { fb.textContent='Informe data e hora.'; fb.style.color='#ef4444'; return; }
+  fb.textContent='Salvando...'; fb.style.color='#64748b';
+
+  const eventos = [];
+  if (recorrencia === 'unica') {
+    eventos.push({ data_evento: data, hora_inicio: hora });
+  } else {
+    const intervalo = recorrencia === 'semanal' ? 7 : 14;
+    for (let i=0;i<4;i++) {
+      const d = new Date(data); d.setDate(d.getDate() + i*intervalo);
+      eventos.push({ data_evento: isoDate(d), hora_inicio: hora });
+    }
+  }
+
+  const inserts = eventos.map(ev => ({
+    instituicao_id: instituicaoId,
+    paciente_id:    pacId   || null,
+    paciente_nome:  pacNome || null,
+    tipo, profissional: prof, duracao_minutos: duracao,
+    observacoes: obs, ...ev
+  }));
+
+  const { error } = await supabase.from('agenda_sessoes').insert(inserts);
+  if (error) { fb.textContent='Erro: '+error.message; fb.style.color='#ef4444'; return; }
+  fb.textContent='✅ Salvo!'; fb.style.color='#10b981';
+  setTimeout(()=>{ fecharModal(); carregarEventos(); }, 1000);
+}
+
+function verEvento(id) {
+  const e = eventosCache.find(ev=>ev.id===id);
+  if (!e) return;
+  document.getElementById('verEvTitulo').textContent = e.paciente_nome || 'Sessão';
+  document.getElementById('verEvBody').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:13.5px;">
+      <div><strong>Data:</strong> ${formatarData(e.data_evento)}</div>
+      <div><strong>Hora:</strong> ${e.hora_inicio?.slice(0,5)||'—'} · ${e.duracao_minutos||60}min</div>
+      <div><strong>Tipo:</strong> <span class="tipo-chip chip-${e.tipo?.charAt(0)||'o'}">${TIPO_LABELS[e.tipo]||e.tipo}</span></div>
+      <div><strong>Profissional:</strong> ${e.profissional||'—'}</div>
+      ${e.observacoes?`<div><strong>Obs:</strong> ${e.observacoes}</div>`:''}
+    </div>`;
+  document.getElementById('verEvDel').onclick = () => { document.getElementById('modalVerEvento').style.display='none'; deletarEvento(id); };
+  document.getElementById('modalVerEvento').style.display = 'flex';
+}
+
+async function deletarEvento(id) {
+  if (!confirm('Excluir esta sessão?')) return;
+  await supabase.from('agenda_sessoes').delete().eq('id',id);
+  await carregarEventos();
+}
+
+// ─── UTILITÁRIOS ───────────────────────────────────────
+function isoDate(d) { return d.toISOString().split('T')[0]; }
+function formatarData(iso) {
+  if (!iso) return '—';
+  const [a,m,d] = iso.split('-');
+  return `${d}/${m}/${a}`;
+}
+
+// Fechar dropdown ao clicar fora
+document.addEventListener('click', e => {
+  if (!e.target.closest('#evPacBusca')) {
+    const dd = document.getElementById('evPacDropdown');
+    if (dd) dd.style.display = 'none';
+  }
+});
+
+iniciar();
+</script>
+</body>
+</html>

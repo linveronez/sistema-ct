@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Escalas Clínicas — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+<style>
+.escala-layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+@media (max-width: 900px) { .escala-layout { grid-template-columns: 1fr; } }
+
+.pac-list-sidebar { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; max-height: 80vh; display: flex; flex-direction: column; }
+.pac-list-header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 13.5px; background: var(--bg); }
+.pac-list-search { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.pac-list-search input { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: 'Inter', sans-serif; outline: none; }
+.pac-list-items { overflow-y: auto; flex: 1; }
+.pac-list-item { padding: 11px 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .12s; display: flex; align-items: center; gap: 10px; }
+.pac-list-item:hover { background: var(--bg); }
+.pac-list-item.selected { background: var(--primary-light); border-left: 3px solid var(--primary); }
+.pac-ini { width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.pac-list-item.selected .pac-ini { background: var(--primary); color: white; }
+
+/* Tabs escalas */
+.escala-tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; border-bottom: 2px solid var(--border); }
+.escala-tab { padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: none; color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -2px; font-family: 'Inter', sans-serif; transition: all .15s; }
+.escala-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+/* Questões */
+.questao-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 18px; margin-bottom: 12px; box-shadow: var(--shadow-sm); }
+.questao-num { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--primary); margin-bottom: 6px; }
+.questao-texto { font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 12px; line-height: 1.5; }
+.opcoes-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.opcao-btn { padding: 7px 14px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--bg); font-size: 13px; cursor: pointer; transition: all .14s; font-family: 'Inter', sans-serif; color: var(--text-secondary); }
+.opcao-btn:hover { border-color: var(--primary); color: var(--primary); }
+.opcao-btn.selected { border-color: var(--primary); background: var(--primary); color: white; font-weight: 600; }
+
+/* Resultado */
+.resultado-card { border-radius: var(--radius-lg); padding: 24px; margin-bottom: 16px; text-align: center; }
+.resultado-card.minima    { background: #ecfdf5; border: 2px solid #10b981; }
+.resultado-card.leve      { background: #eff6ff; border: 2px solid #2563eb; }
+.resultado-card.moderada  { background: #fffbeb; border: 2px solid #f59e0b; }
+.resultado-card.grave     { background: #fef2f2; border: 2px solid #ef4444; }
+.resultado-pontos { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 48px; font-weight: 800; line-height: 1; }
+.resultado-classe { font-size: 18px; font-weight: 700; margin-top: 8px; }
+.resultado-desc { font-size: 13px; margin-top: 6px; opacity: .8; }
+
+/* Histórico */
+.hist-escala-item { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+.hist-escala-item:last-child { border-bottom: none; }
+.hist-pontos { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 22px; font-weight: 800; width: 48px; text-align: center; }
+.hist-class-badge { padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+.badge-minima   { background: #ecfdf5; color: #065f46; }
+.badge-leve     { background: #eff6ff; color: #1e40af; }
+.badge-moderada { background: #fffbeb; color: #92400e; }
+.badge-grave    { background: #fef2f2; color: #991b1b; }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(2px); }
+.modal-box { background: white; border-radius: var(--radius-xl); width: 100%; max-width: 640px; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; }
+.modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: white; z-index: 1; }
+.modal-header h2 { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-secondary); }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; position: sticky; bottom: 0; background: white; }
+
+/* Progresso */
+.progresso-bar { height: 6px; background: var(--border); border-radius: 99px; margin: 12px 0 4px; overflow: hidden; }
+.progresso-fill { height: 100%; background: var(--primary); border-radius: 99px; transition: width .3s; }
+</style>
+</head>
+<body>
+<div class="sidebar"></div>
+<div class="content">
+
+  <div class="header-page">
+    <div>
+      <h1>📊 Escalas Clínicas</h1>
+      <p class="page-subtitle">Avaliações padronizadas: PHQ-9, GAD-7, AUDIT, ASSIST</p>
+    </div>
+  </div>
+
+  <div class="escala-layout">
+
+    <!-- Sidebar pacientes -->
+    <div class="pac-list-sidebar">
+      <div class="pac-list-header">👤 Selecione o Paciente</div>
+      <div class="pac-list-search">
+        <input type="text" id="searchPac" placeholder="Buscar..." oninput="filtrarPacs()">
+      </div>
+      <div class="pac-list-items" id="pacList"></div>
+    </div>
+
+    <!-- Área principal -->
+    <div>
+      <div id="estadoVazio" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:48px;text-align:center;color:#94a3b8;">
+        <div style="font-size:36px;margin-bottom:12px;">📊</div>
+        <strong>Selecione um paciente</strong>
+        <p style="margin-top:4px;font-size:13px;">Escolha ao lado para aplicar e ver escalas.</p>
+      </div>
+
+      <div id="areaEscalas" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+          <h2 style="font-size:17px;font-weight:700;" id="nomePacEsc">—</h2>
+        </div>
+
+        <div class="escala-tabs">
+          <button class="escala-tab active" onclick="setTabEscala('phq9',this)">PHQ-9 Depressão</button>
+          <button class="escala-tab" onclick="setTabEscala('gad7',this)">GAD-7 Ansiedade</button>
+          <button class="escala-tab" onclick="setTabEscala('audit',this)">AUDIT Álcool</button>
+          <button class="escala-tab" onclick="setTabEscala('assist',this)">ASSIST Substâncias</button>
+          <button class="escala-tab" onclick="setTabEscala('historico',this)">📋 Histórico</button>
+        </div>
+
+        <div id="conteudoEscala"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script src="sidebar.js"></script>
+<script>
+let instituicaoId = null;
+let pacienteSel = null;
+let pacientesCache = [];
+let tipoEscalaAtual = 'phq9';
+let respostasAtual = {};
+let historicoCache = [];
+
+// ── DEFINIÇÕES DAS ESCALAS ──────────────────────────────────
+const ESCALAS = {
+  phq9: {
+    nome: 'PHQ-9 — Questionário de Saúde do Paciente',
+    instrucao: 'Nas últimas 2 semanas, com que frequência você foi incomodado por algum dos problemas abaixo?',
+    opcoes: ['Nunca (0)','Alguns dias (1)','Mais da metade dos dias (2)','Quase todos os dias (3)'],
+    valores: [0,1,2,3],
+    perguntas: [
+      'Pouco interesse ou prazer em fazer as coisas',
+      'Sentir-se para baixo, deprimido(a) ou sem esperança',
+      'Dificuldade para adormecer ou permanecer dormindo, ou dormir mais do que de costume',
+      'Sentir-se cansado(a) ou com pouca energia',
+      'Pouco apetite ou comer demais',
+      'Sentir-se mal consigo mesmo(a) — ou sentir que é um fracasso ou que decepcionou a si mesmo(a) ou à família',
+      'Dificuldade para se concentrar nas coisas, como ler o jornal ou ver televisão',
+      'Mover-se ou falar tão lentamente que outras pessoas poderiam ter notado. Ou, ao contrário, estar tão agitado(a) que você tem se movido muito mais do que de costume',
+      'Pensamentos de que seria melhor estar morto(a) ou de se machucar de alguma forma'
+    ],
+    classificar: (pts) => {
+      if (pts <= 4)  return { classe: 'minima',   label: 'Sintomas Mínimos',  cor: '#10b981', desc: 'Pontuação: 0-4. Monitorar.' };
+      if (pts <= 9)  return { classe: 'leve',      label: 'Depressão Leve',    cor: '#2563eb', desc: 'Pontuação: 5-9. Reavaliação em 2 semanas.' };
+      if (pts <= 14) return { classe: 'moderada',  label: 'Depressão Moderada',cor: '#f59e0b', desc: 'Pontuação: 10-14. Plano de tratamento.' };
+      if (pts <= 19) return { classe: 'grave',     label: 'Dep. Mod. Grave',   cor: '#ef4444', desc: 'Pontuação: 15-19. Tratamento ativo.' };
+      return              { classe: 'grave',     label: 'Depressão Grave',   cor: '#991b1b', desc: 'Pontuação: 20-27. Tratamento imediato.' };
+    }
+  },
+  gad7: {
+    nome: 'GAD-7 — Transtorno de Ansiedade Generalizada',
+    instrucao: 'Nas últimas 2 semanas, com que frequência você foi incomodado por algum dos problemas abaixo?',
+    opcoes: ['Nunca (0)','Alguns dias (1)','Mais da metade dos dias (2)','Quase todos os dias (3)'],
+    valores: [0,1,2,3],
+    perguntas: [
+      'Sentir-se nervoso(a), ansioso(a) ou muito tenso(a)',
+      'Não ser capaz de parar ou controlar as preocupações',
+      'Preocupar-se muito com várias coisas diferentes',
+      'Dificuldade para relaxar',
+      'Ficar tão agitado(a) que se torna difícil permanecer sentado(a)',
+      'Tornar-se facilmente irritável ou irritado(a)',
+      'Sentir medo como se algo horrível fosse acontecer'
+    ],
+    classificar: (pts) => {
+      if (pts <= 4)  return { classe: 'minima',  label: 'Ansiedade Mínima',   cor: '#10b981', desc: 'Pontuação: 0-4. Monitorar.' };
+      if (pts <= 9)  return { classe: 'leve',    label: 'Ansiedade Leve',     cor: '#2563eb', desc: 'Pontuação: 5-9. Monitorar e reavaliar.' };
+      if (pts <= 14) return { classe: 'moderada',label: 'Ansiedade Moderada', cor: '#f59e0b', desc: 'Pontuação: 10-14. Avaliar tratamento.' };
+      return              { classe: 'grave',   label: 'Ansiedade Grave',    cor: '#ef4444', desc: 'Pontuação: 15-21. Tratamento necessário.' };
+    }
+  },
+  audit: {
+    nome: 'AUDIT — Teste de Identificação de Distúrbios por Uso de Álcool',
+    instrucao: 'Responda às questões abaixo pensando nos últimos 12 meses.',
+    opcoes: null,
+    perguntas: [
+      { texto: 'Com que frequência você consome bebidas alcoólicas?', opcoes: ['Nunca','Mensalmente ou menos','2 a 4 vezes por mês','2 a 3 vezes por semana','4 ou mais vezes por semana'], valores: [0,1,2,3,4] },
+      { texto: 'Quantas doses contendo álcool você consome em um dia típico de consumo?', opcoes: ['1 ou 2','3 ou 4','5 ou 6','7, 8 ou 9','10 ou mais'], valores: [0,1,2,3,4] },
+      { texto: 'Com que frequência você consome 6 ou mais doses em uma única ocasião?', opcoes: ['Nunca','Menos de uma vez por mês','Mensalmente','Semanalmente','Diariamente ou quase diariamente'], valores: [0,1,2,3,4] },
+      { texto: 'Você alguma vez não foi capaz de parar de beber uma vez que tinha começado?', opcoes: ['Nunca','Menos de uma vez por mês','Mensalmente','Semanalmente','Diariamente ou quase diariamente'], valores: [0,1,2,3,4] },
+      { texto: 'Com que frequência por causa do álcool você não pôde fazer o que era esperado de você?', opcoes: ['Nunca','Menos de uma vez por mês','Mensalmente','Semanalmente','Diariamente ou quase diariamente'], valores: [0,1,2,3,4] },
+      { texto: 'Com que frequência você precisou de uma primeira dose de álcool para poder começar o dia após uma noite de pesada bebedeira?', opcoes: ['Nunca','Menos de uma vez por mês','Mensalmente','Semanalmente','Diariamente ou quase diariamente'], valores: [0,1,2,3,4] },
+      { texto: 'Com que frequência você se sentiu culpado ou com remorso depois de beber?', opcoes: ['Nunca','Menos de uma vez por mês','Mensalmente','Semanalmente','Diariamente ou quase diariamente'], valores: [0,1,2,3,4] },
+      { texto: 'Com que frequência você não conseguiu se lembrar o que aconteceu na noite anterior porque você tinha bebido?', opcoes: ['Nunca','Menos de uma vez por mês','Mensalmente','Semanalmente','Diariamente ou quase diariamente'], valores: [0,1,2,3,4] },
+      { texto: 'Você ou outra pessoa já saiu ferida como resultado do seu beber?', opcoes: ['Não','Sim, mas não nos últimos 12 meses','Sim, nos últimos 12 meses'], valores: [0,2,4] },
+      { texto: 'Um parente, amigo, médico ou outro profissional de saúde já se preocupou com o fato de você beber ou sugeriu que você parasse?', opcoes: ['Não','Sim, mas não nos últimos 12 meses','Sim, nos últimos 12 meses'], valores: [0,2,4] },
+    ],
+    classificar: (pts) => {
+      if (pts <= 7)  return { classe: 'minima',  label: 'Uso de Baixo Risco',  cor: '#10b981', desc: 'Pontuação: 0-7. Orientação sobre uso seguro.' };
+      if (pts <= 15) return { classe: 'leve',    label: 'Uso Arriscado',       cor: '#2563eb', desc: 'Pontuação: 8-15. Intervenção breve.' };
+      if (pts <= 19) return { classe: 'moderada',label: 'Uso Nocivo',          cor: '#f59e0b', desc: 'Pontuação: 16-19. Intervenção breve e acompanhamento.' };
+      return              { classe: 'grave',   label: 'Dependência Provável', cor: '#ef4444', desc: 'Pontuação: 20-40. Tratamento especializado.' };
+    }
+  },
+  assist: {
+    nome: 'ASSIST — Triagem para Álcool, Tabaco e Substâncias',
+    instrucao: 'Nas últimas 3 semanas, com que frequência você usou as substâncias abaixo (exceto para fins médicos)?',
+    opcoes: ['Nunca (0)','Uma ou duas vezes (2)','Mensalmente (3)','Semanalmente (4)','Diariamente/quase (6)'],
+    valores: [0,2,3,4,6],
+    perguntas: [
+      'Tabaco (cigarros, charutos, cachimbo, mastigado)',
+      'Bebidas alcoólicas (cerveja, vinho, destilados)',
+      'Cannabis (maconha, haxixe)',
+      'Cocaína (pó, crack)',
+      'Estimulantes (anfetaminas, ecstasy)',
+      'Inalantes (cola, solventes, lança-perfume)',
+      'Sedativos/tranquilizantes (sem prescrição)',
+      'Alucinógenos (LSD, cogumelos)',
+      'Opioides (heroína, morfina, codeína, tramadol)',
+    ],
+    classificar: (pts) => {
+      if (pts <= 10) return { classe: 'minima',  label: 'Baixo Risco',        cor: '#10b981', desc: 'Pontuação: 0-10. Sem intervenção necessária.' };
+      if (pts <= 26) return { classe: 'leve',    label: 'Risco Moderado',     cor: '#f59e0b', desc: 'Pontuação: 11-26. Intervenção breve indicada.' };
+      return              { classe: 'grave',   label: 'Alto Risco',         cor: '#ef4444', desc: 'Pontuação: 27+. Avaliação aprofundada necessária.' };
+    }
+  }
+};
+
+async function iniciar() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  const { data: u } = await supabase.from('usuarios').select('instituicao_id').eq('id', session.user.id).single();
+  if (!u) return;
+  instituicaoId = u.instituicao_id;
+  await carregarPacientes();
+}
+
+async function carregarPacientes() {
+  const { data } = await supabase.from('pacientes').select('id, nome')
+    .eq('instituicao_id', instituicaoId).is('data_desligamento', null).order('nome');
+  pacientesCache = data || [];
+  renderPacList(pacientesCache);
+}
+
+function renderPacList(lista) {
+  document.getElementById('pacList').innerHTML = lista.map(p => {
+    const ini = p.nome.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
+    const sel = pacienteSel?.id === p.id ? 'selected' : '';
+    return `<div class="pac-list-item ${sel}" onclick="selecionarPaciente('${p.id}')">
+      <div class="pac-ini">${ini}</div>
+      <div style="font-size:13.5px;font-weight:500;">${p.nome}</div>
+    </div>`;
+  }).join('');
+}
+
+function filtrarPacs() {
+  const q = document.getElementById('searchPac').value.toLowerCase();
+  renderPacList(pacientesCache.filter(p => p.nome.toLowerCase().includes(q)));
+}
+
+async function selecionarPaciente(id) {
+  pacienteSel = pacientesCache.find(p => p.id === id);
+  document.getElementById('estadoVazio').style.display = 'none';
+  document.getElementById('areaEscalas').style.display = '';
+  document.getElementById('nomePacEsc').textContent = `📊 ${pacienteSel.nome}`;
+  renderPacList(pacientesCache);
+  await carregarHistorico();
+  setTabEscala('phq9', document.querySelector('.escala-tab'));
+}
+
+async function carregarHistorico() {
+  const { data } = await supabase.from('escalas_aplicadas').select('*')
+    .eq('paciente_id', pacienteSel.id)
+    .order('data_aplicacao', { ascending: false });
+  historicoCache = data || [];
+}
+
+function setTabEscala(tipo, btn) {
+  tipoEscalaAtual = tipo;
+  document.querySelectorAll('.escala-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  respostasAtual = {};
+  if (tipo === 'historico') renderHistorico();
+  else renderFormEscala(tipo);
+}
+
+function renderFormEscala(tipo) {
+  const esc = ESCALAS[tipo];
+  const el = document.getElementById('conteudoEscala');
+
+  let html = `<div style="background:var(--primary-light);border:1px solid #bfdbfe;border-radius:var(--radius-md);padding:14px 18px;margin-bottom:20px;font-size:13px;color:var(--primary);">
+    <strong>${esc.nome}</strong><br><span style="opacity:.85;">${esc.instrucao}</span>
+  </div>`;
+
+  const perguntas = esc.perguntas;
+  const opcoesPadrao = esc.opcoes;
+  const valoresPadrao = esc.valores;
+
+  perguntas.forEach((perg, i) => {
+    const isObj = typeof perg === 'object';
+    const texto = isObj ? perg.texto : perg;
+    const opcoes = isObj ? perg.opcoes : opcoesPadrao;
+    const valores = isObj ? perg.valores : valoresPadrao;
+
+    html += `<div class="questao-card">
+      <div class="questao-num">Questão ${i+1} de ${perguntas.length}</div>
+      <div class="questao-texto">${texto}</div>
+      <div class="opcoes-grid">
+        ${opcoes.map((op, j) => `<button class="opcao-btn" data-q="${i}" data-v="${valores[j]}" onclick="selecionarOpcao(this,${i},${valores[j]})">${op}</button>`).join('')}
+      </div>
+    </div>`;
+  });
+
+  html += `<div id="resultadoEscala"></div>
+    <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div class="form-group" style="margin:0;flex:1;min-width:180px;">
+        <label style="font-size:12px;">Profissional</label>
+        <input type="text" id="profEscala" placeholder="Nome do profissional" style="height:36px;">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label style="font-size:12px;">Observações</label>
+        <input type="text" id="obsEscala" placeholder="Observações gerais..." style="height:36px;min-width:200px;">
+      </div>
+      <button class="btn-primary" onclick="calcularESalvar()" style="margin-top:18px;">💾 Calcular e Salvar</button>
+      <span id="fbEscala" style="font-size:13px;color:#64748b;"></span>
+    </div>`;
+
+  el.innerHTML = html;
+}
+
+function selecionarOpcao(btn, q, valor) {
+  document.querySelectorAll(`.opcao-btn[data-q="${q}"]`).forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  respostasAtual[q] = valor;
+
+  // Mostra resultado parcial
+  const esc = ESCALAS[tipoEscalaAtual];
+  const total = Object.values(respostasAtual).reduce((s,v) => s+v, 0);
+  const res = esc.classificar(total);
+  const respondidas = Object.keys(respostasAtual).length;
+  const totalQ = esc.perguntas.length;
+
+  const resultDiv = document.getElementById('resultadoEscala');
+  if (respondidas > 0) {
+    resultDiv.innerHTML = `<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 18px;margin:12px 0;display:flex;align-items:center;gap:16px;">
+      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:36px;font-weight:800;color:${res.cor};">${total}</div>
+      <div>
+        <div style="font-weight:600;color:${res.cor};">${res.label}</div>
+        <div style="font-size:12px;color:var(--text-secondary);">${respondidas}/${totalQ} respondidas · ${res.desc}</div>
+        <div class="progresso-bar" style="width:200px;"><div class="progresso-fill" style="width:${Math.round((respondidas/totalQ)*100)}%;background:${res.cor};"></div></div>
+      </div>
+    </div>`;
+  }
+}
+
+async function calcularESalvar() {
+  const esc = ESCALAS[tipoEscalaAtual];
+  const totalQ = esc.perguntas.length;
+  const respondidas = Object.keys(respostasAtual).length;
+  const fb = document.getElementById('fbEscala');
+
+  if (respondidas < totalQ) {
+    fb.textContent = `Responda todas as ${totalQ} questões.`;
+    fb.style.color = '#ef4444';
+    return;
+  }
+
+  const total = Object.values(respostasAtual).reduce((s,v) => s+v, 0);
+  const res = esc.classificar(total);
+  fb.textContent = 'Salvando...'; fb.style.color = '#64748b';
+
+  const { error } = await supabase.from('escalas_aplicadas').insert([{
+    instituicao_id: instituicaoId,
+    paciente_id:    pacienteSel.id,
+    tipo_escala:    tipoEscalaAtual,
+    data_aplicacao: new Date().toISOString().split('T')[0],
+    profissional:   document.getElementById('profEscala')?.value || null,
+    respostas:      respostasAtual,
+    pontuacao_total: total,
+    classificacao:  res.classe,
+    observacoes:    document.getElementById('obsEscala')?.value || null,
+  }]);
+
+  if (error) { fb.textContent = 'Erro: ' + error.message; fb.style.color = '#ef4444'; return; }
+  if (typeof registrarLog === 'function')
+    registrarLog('criar', 'escala', pacienteSel.nome, `Escala ${tipoEscalaAtual.toUpperCase()} aplicada — ${total} pts — ${res.label}`);
+
+  fb.textContent = '✅ Salvo!'; fb.style.color = '#10b981';
+  await carregarHistorico();
+}
+
+function renderHistorico() {
+  const el = document.getElementById('conteudoEscala');
+  if (!historicoCache.length) {
+    el.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:48px;text-align:center;color:#94a3b8;">
+      <div style="font-size:32px;margin-bottom:12px;">📋</div>
+      <strong>Nenhuma escala aplicada ainda</strong>
+    </div>`;
+    return;
+  }
+
+  const NOMES = { phq9:'PHQ-9', gad7:'GAD-7', audit:'AUDIT', assist:'ASSIST', interna:'Interna' };
+
+  el.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden;">
+    <div class="card-header"><span class="card-title">📋 Histórico de Escalas — ${pacienteSel.nome}</span></div>
+    ${historicoCache.map(h => {
+      const cls = h.classificacao || 'leve';
+      const LABELS = { minima:'Mínimo/Baixo', leve:'Leve/Moderado', moderada:'Moderado/Alto', grave:'Grave/Dependência' };
+      return `<div class="hist-escala-item">
+        <div class="hist-pontos" style="color:${cls==='grave'?'#ef4444':cls==='moderada'?'#f59e0b':cls==='leve'?'#2563eb':'#10b981'};">${h.pontuacao_total}</div>
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:14px;">${NOMES[h.tipo_escala]||h.tipo_escala}</div>
+          <div style="font-size:12px;color:var(--text-secondary);">
+            ${formatarData(h.data_aplicacao)} · ${h.profissional||'Profissional não informado'}
+          </div>
+          ${h.observacoes ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${h.observacoes}</div>` : ''}
+        </div>
+        <span class="hist-class-badge badge-${cls}">${LABELS[cls]||cls}</span>
+        <button class="btn-small danger" style="margin-left:8px;" onclick="deletarEscala('${h.id}')">✕</button>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+async function deletarEscala(id) {
+  if (!confirm('Excluir esta avaliação?')) return;
+  await supabase.from('escalas_aplicadas').delete().eq('id', id);
+  await carregarHistorico();
+  renderHistorico();
+}
+
+function formatarData(iso) {
+  if (!iso) return '—';
+  const [a,m,d] = iso.split('-');
+  return `${d}/${m}/${a}`;
+}
+
+iniciar();
+</script>
+</body>
+</html>

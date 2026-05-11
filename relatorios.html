@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Relatórios — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+<style>
+/* ── Relatórios Layout ── */
+.rel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; margin-bottom: 32px; }
+
+.rel-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  overflow: hidden; transition: all .18s; cursor: pointer;
+}
+.rel-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.rel-card-icon { font-size: 36px; margin-bottom: 12px; }
+.rel-card-header {
+  padding: 20px 22px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 14px;
+}
+.rel-card-body { padding: 16px 22px; }
+.rel-card-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.rel-card-desc  { font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+.rel-card-footer { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+
+.rel-icon-wrap {
+  width: 52px; height: 52px; border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; flex-shrink: 0;
+}
+
+/* Modal pac selector */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(2px); }
+.modal-box { background: white; border-radius: var(--radius-xl); width: 100%; max-width: 480px; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; }
+.modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-secondary); }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+
+/* ── ESTILOS DE IMPRESSÃO ── */
+@media print {
+  body { background: white !important; padding: 0 !important; }
+  .sidebar, .global-header, .header-page, .rel-grid, .modal-overlay { display: none !important; }
+  .print-area { display: block !important; }
+  .content { margin: 0 !important; padding: 0 !important; }
+  @page { margin: 18mm 20mm; }
+}
+
+/* ── Preview de impressão ── */
+.print-area { display: none; }
+.print-preview-wrap {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  overflow: hidden; margin-top: 24px;
+}
+.print-preview-header {
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg);
+}
+
+/* ── Folha de relatório ── */
+.folha {
+  font-family: 'Times New Roman', serif;
+  font-size: 12pt;
+  line-height: 1.7;
+  padding: 0;
+  color: #000;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.folha-preview {
+  padding: 32px 36px;
+}
+.folha-header { text-align: center; margin-bottom: 24px; }
+.folha-titulo { font-size: 18pt; font-weight: bold; margin-bottom: 4px; }
+.folha-subtitulo { font-size: 12pt; color: #555; }
+.folha-linha { border: none; border-top: 2px solid #000; margin: 14px 0; }
+.folha-linha-simples { border: none; border-top: 1px solid #ccc; margin: 10px 0; }
+.folha-section { margin: 16px 0 8px; font-size: 13pt; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; }
+.folha-campo { margin: 5px 0; }
+.folha-campo strong { min-width: 180px; display: inline-block; }
+.folha-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 11pt; }
+.folha-table th { background: #f1f5f9; border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 10pt; text-transform: uppercase; letter-spacing: .4px; }
+.folha-table td { border: 1px solid #ccc; padding: 7px 10px; }
+.folha-table tr:nth-child(even) td { background: #fafafa; }
+.folha-assinatura { margin-top: 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+.folha-assinatura-bloco { text-align: center; }
+.folha-assinatura-linha { border-top: 1px solid #000; padding-top: 6px; margin-top: 40px; font-size: 11pt; }
+.folha-rodape { margin-top: 36px; font-size: 9pt; color: #888; text-align: center; border-top: 1px solid #ddd; padding-top: 8px; }
+.folha-badge { display: inline-block; border: 1px solid #000; border-radius: 4px; padding: 2px 8px; font-size: 10pt; margin: 2px; }
+</style>
+</head>
+<body>
+<div class="sidebar"></div>
+<div class="content">
+
+  <div class="header-page">
+    <div>
+      <h1>🖨️ Relatórios</h1>
+      <p class="page-subtitle">Geração de relatórios clínicos e administrativos</p>
+    </div>
+    <button class="btn-secondary" id="btnImprimir" style="display:none;" onclick="imprimirPreview()">🖨️ Imprimir / Salvar PDF</button>
+  </div>
+
+  <!-- Cards de relatórios -->
+  <div class="rel-grid">
+
+    <div class="rel-card" onclick="gerarMensal()">
+      <div class="rel-card-header">
+        <div class="rel-icon-wrap" style="background:#eff6ff;">📊</div>
+        <div>
+          <div class="rel-card-title">Relatório Mensal</div>
+          <div class="rel-card-desc">Resumo completo do mês: pacientes ativos, receitas, gastos, saldo e movimentações financeiras.</div>
+        </div>
+      </div>
+      <div class="rel-card-footer">
+        <button class="btn-primary" style="font-size:12px;padding:6px 14px;" onclick="event.stopPropagation();gerarMensal()">🖨️ Gerar</button>
+        <select id="mesMensal" onclick="event.stopPropagation()" style="height:32px;font-size:12px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+        </select>
+      </div>
+    </div>
+
+    <div class="rel-card" onclick="selecionarPaciente('evolucao')">
+      <div class="rel-card-header">
+        <div class="rel-icon-wrap" style="background:#ecfdf5;">📝</div>
+        <div>
+          <div class="rel-card-title">Relatório de Evolução</div>
+          <div class="rel-card-desc">Histórico clínico completo de um paciente: evoluções terapêuticas, psicológicas e escalas aplicadas.</div>
+        </div>
+      </div>
+      <div class="rel-card-footer">
+        <button class="btn-primary" style="font-size:12px;padding:6px 14px;" onclick="event.stopPropagation();selecionarPaciente('evolucao')">🖨️ Gerar</button>
+      </div>
+    </div>
+
+    <div class="rel-card" onclick="selecionarPaciente('acolhimento')">
+      <div class="rel-card-header">
+        <div class="rel-icon-wrap" style="background:#f5f3ff;">📋</div>
+        <div>
+          <div class="rel-card-title">Ficha de Acolhimento</div>
+          <div class="rel-card-desc">Ficha de entrada do paciente com dados pessoais, responsável, contrato e profissionais vinculados.</div>
+        </div>
+      </div>
+      <div class="rel-card-footer">
+        <button class="btn-primary" style="font-size:12px;padding:6px 14px;" onclick="event.stopPropagation();selecionarPaciente('acolhimento')">🖨️ Gerar</button>
+      </div>
+    </div>
+
+    <div class="rel-card" onclick="selecionarPaciente('desligamento')">
+      <div class="rel-card-header">
+        <div class="rel-icon-wrap" style="background:#fef2f2;">🚪</div>
+        <div>
+          <div class="rel-card-title">Relatório de Desligamento</div>
+          <div class="rel-card-desc">Resumo de saída do paciente com tempo de tratamento, motivo e histórico de evoluções finais.</div>
+        </div>
+      </div>
+      <div class="rel-card-footer">
+        <button class="btn-primary" style="font-size:12px;padding:6px 14px;" onclick="event.stopPropagation();selecionarPaciente('desligamento')">🖨️ Gerar</button>
+      </div>
+    </div>
+
+    <div class="rel-card" onclick="selecionarPaciente('medicacao')">
+      <div class="rel-card-header">
+        <div class="rel-icon-wrap" style="background:#ecfdf5;">💊</div>
+        <div>
+          <div class="rel-card-title">Relatório de Medicação</div>
+          <div class="rel-card-desc">Lista detalhada de todos os medicamentos ativos de um paciente com dosagem, horários e estoque.</div>
+        </div>
+      </div>
+      <div class="rel-card-footer">
+        <button class="btn-primary" style="font-size:12px;padding:6px 14px;" onclick="event.stopPropagation();selecionarPaciente('medicacao')">🖨️ Gerar</button>
+      </div>
+    </div>
+
+    <div class="rel-card" onclick="gerarOcupacao()">
+      <div class="rel-card-header">
+        <div class="rel-icon-wrap" style="background:#fffbeb;">🛏️</div>
+        <div>
+          <div class="rel-card-title">Ocupação de Leitos</div>
+          <div class="rel-card-desc">Status atual de todos os quartos e leitos da instituição com pacientes alocados.</div>
+        </div>
+      </div>
+      <div class="rel-card-footer">
+        <button class="btn-primary" style="font-size:12px;padding:6px 14px;" onclick="event.stopPropagation();gerarOcupacao()">🖨️ Gerar</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Preview area -->
+  <div class="print-preview-wrap" id="previewWrap" style="display:none;">
+    <div class="print-preview-header">
+      <span style="font-weight:600;font-size:14px;" id="previewTitulo">Prévia do Relatório</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-primary" onclick="imprimirPreview()">🖨️ Imprimir / PDF</button>
+        <button class="btn-secondary" onclick="fecharPreview()">✕ Fechar</button>
+      </div>
+    </div>
+    <div id="previewBody" style="padding:0;"></div>
+  </div>
+
+</div>
+
+<!-- Modal seleção de paciente -->
+<div class="modal-overlay" id="modalPac" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="modalPacTitulo">Selecionar Paciente</h2>
+      <button class="modal-close" onclick="fecharModalPac()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Buscar paciente</label>
+        <input type="text" id="buscarPacRel" placeholder="Digite o nome..." oninput="filtrarPacsRel()">
+      </div>
+      <div id="listaPacsRel" style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-md);"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="fecharModalPac()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script src="sidebar.js"></script>
+<script>
+let instituicaoId = null;
+let instituicao   = null;
+let pacientesCache = [];
+let tipoRelAtual   = null;
+
+async function iniciar() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  const { data: u } = await supabase.from('usuarios').select('instituicao_id').eq('id', session.user.id).single();
+  if (!u) return;
+  instituicaoId = u.instituicao_id;
+
+  const { data: inst } = await supabase.from('instituicoes').select('*').eq('id', instituicaoId).single();
+  instituicao = inst || {};
+
+  const { data: pacs } = await supabase.from('pacientes').select('*')
+    .eq('instituicao_id', instituicaoId).order('nome');
+  pacientesCache = pacs || [];
+
+  // Preencher select de meses
+  const sel = document.getElementById('mesMensal');
+  const hoje = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const val = d.toISOString().slice(0,7) + '-01';
+    const lbl = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    sel.innerHTML += `<option value="${val}">${lbl}</option>`;
+  }
+}
+
+// ── SELEÇÃO DE PACIENTE ──────────────────────────────
+function selecionarPaciente(tipo) {
+  tipoRelAtual = tipo;
+  const titulos = { evolucao:'Evolução Clínica', acolhimento:'Ficha de Acolhimento', desligamento:'Desligamento', medicacao:'Medicação' };
+  document.getElementById('modalPacTitulo').textContent = `📋 ${titulos[tipo] || tipo} — Selecionar Paciente`;
+  document.getElementById('buscarPacRel').value = '';
+  renderPacsRel(pacientesCache);
+  document.getElementById('modalPac').style.display = 'flex';
+}
+
+function fecharModalPac() { document.getElementById('modalPac').style.display = 'none'; }
+
+function filtrarPacsRel() {
+  const q = document.getElementById('buscarPacRel').value.toLowerCase();
+  renderPacsRel(pacientesCache.filter(p => p.nome.toLowerCase().includes(q)));
+}
+
+function renderPacsRel(lista) {
+  document.getElementById('listaPacsRel').innerHTML = lista.map(p => {
+    const ativo = !p.data_desligamento;
+    return `<div style="padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;transition:background .12s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''" onclick="confirmarPaciente('${p.id}')">
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${p.nome.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase()}</div>
+      <div>
+        <div style="font-weight:600;">${p.nome}</div>
+        <div style="font-size:11px;color:#94a3b8;">${ativo ? '● Ativo' : '● Encerrado'} · Entrada: ${fmtData(p.data_inicio_contrato)}</div>
+      </div>
+    </div>`;
+  }).join('') || '<div style="padding:20px;text-align:center;color:#94a3b8;">Nenhum paciente.</div>';
+}
+
+function confirmarPaciente(id) {
+  fecharModalPac();
+  const pac = pacientesCache.find(p => p.id === id);
+  if (!pac) return;
+  switch(tipoRelAtual) {
+    case 'evolucao':     gerarEvolucao(pac);     break;
+    case 'acolhimento':  gerarAcolhimento(pac);  break;
+    case 'desligamento': gerarDesligamento(pac); break;
+    case 'medicacao':    gerarMedicacao(pac);    break;
+  }
+}
+
+// ── CABEÇALHO PADRÃO ───────────────────────────────────
+function cabecalho(titulo, subtitulo = '') {
+  const logoHtml = instituicao.logo_url
+    ? `<img src="${instituicao.logo_url}" style="max-height:60px;margin-bottom:8px;" alt="Logo">`
+    : '';
+  return `<div class="folha-header">
+    ${logoHtml}
+    <div class="folha-titulo">${instituicao.nome || 'Centro Terapêutico'}</div>
+    ${instituicao.endereco ? `<div style="font-size:10pt;color:#555;">${instituicao.endereco}</div>` : ''}
+    ${instituicao.telefone ? `<div style="font-size:10pt;color:#555;">Tel: ${instituicao.telefone}</div>` : ''}
+    <div class="folha-linha"></div>
+    <div style="font-size:16pt;font-weight:bold;margin-top:10px;">${titulo}</div>
+    ${subtitulo ? `<div style="font-size:11pt;color:#555;margin-top:4px;">${subtitulo}</div>` : ''}
+    <div style="font-size:10pt;color:#888;margin-top:4px;">Emitido em: ${new Date().toLocaleString('pt-BR')}</div>
+  </div>`;
+}
+
+// ── RELATÓRIO MENSAL ────────────────────────────────────
+async function gerarMensal() {
+  const mesRef = document.getElementById('mesMensal').value;
+  const mesD   = new Date(mesRef);
+  const mesLabel = mesD.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const primeiroDia = mesRef;
+  const ultimoDia  = new Date(mesD.getFullYear(), mesD.getMonth()+1, 0).toISOString().split('T')[0];
+
+  mostrarCarregando('Relatório Mensal');
+
+  const [{ data: pacs }, { data: pags }, { data: gastos }, { data: folha }] = await Promise.all([
+    supabase.from('pacientes').select('*').eq('instituicao_id', instituicaoId),
+    supabase.from('pagamentos').select('*').eq('instituicao_id', instituicaoId).eq('mes_referencia', mesRef),
+    supabase.from('gastos_fixos').select('*').eq('instituicao_id', instituicaoId).eq('mes_referencia', mesRef),
+    supabase.from('folha_pagamento').select('*').eq('instituicao_id', instituicaoId).eq('mes_referencia', mesRef),
+  ]);
+
+  const ativos = (pacs||[]).filter(p => !p.data_desligamento);
+  const novos  = (pacs||[]).filter(p => p.data_inicio_contrato?.slice(0,7) === mesRef.slice(0,7));
+  const saidas = (pacs||[]).filter(p => p.data_desligamento?.slice(0,7) === mesRef.slice(0,7));
+
+  const pagMap = {};
+  (pags||[]).forEach(p => { pagMap[p.paciente_id] = p; });
+  const totalRec  = ativos.reduce((s,p) => s + (parseFloat(p.valor_mensalidade)||0), 0);
+  const totalPago = ativos.filter(p => pagMap[p.id]?.status === 'pago').reduce((s,p) => s + (parseFloat(p.valor_mensalidade)||0), 0);
+  const totalGastos = (gastos||[]).reduce((s,g) => s + (parseFloat(g.valor)||0), 0);
+  const totalFolha  = (folha||[]).reduce((s,f) => s + (parseFloat(f.salario_base)||0) + (parseFloat(f.bonus)||0) - (parseFloat(f.descontos)||0), 0);
+  const saldo = totalPago - totalGastos - totalFolha;
+
+  const rowsPags = ativos.map(p => {
+    const pag = pagMap[p.id];
+    const status = pag?.status || 'pendente';
+    const cls = status === 'pago' ? '✅' : status === 'atrasado' ? '❌' : '⏳';
+    return `<tr>
+      <td>${p.nome}</td>
+      <td style="text-align:right">R$ ${(parseFloat(p.valor_mensalidade)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="text-align:center">${cls} ${status.charAt(0).toUpperCase()+status.slice(1)}</td>
+      <td style="text-align:center">${pag?.data_pagamento ? fmtData(pag.data_pagamento) : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const rowsGastos = (gastos||[]).map(g => {
+    const CATS = {luz:'Luz',agua:'Água',aluguel:'Aluguel',comida:'Alimentação',internet:'Internet',material_escritorio:'Mat. Escritório',produto_limpeza:'Limpeza',medicacao:'Medicação',manutencao:'Manutenção',outros:'Outros'};
+    return `<tr>
+      <td>${CATS[g.categoria]||g.categoria}</td>
+      <td>${g.descricao||'—'}</td>
+      <td style="text-align:right">R$ ${(parseFloat(g.valor)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+      <td style="text-align:center">${g.pago ? '✅ Pago' : '⏳ Pendente'}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<div class="folha folha-preview">
+    ${cabecalho('RELATÓRIO MENSAL', mesLabel.toUpperCase())}
+
+    <div class="folha-section">Resumo Geral</div>
+    <div class="folha-linha-simples"></div>
+    <table class="folha-table">
+      <tr><td><strong>Pacientes Ativos</strong></td><td style="text-align:right">${ativos.length}</td></tr>
+      <tr><td><strong>Novas Entradas</strong></td><td style="text-align:right">${novos.length}</td></tr>
+      <tr><td><strong>Saídas/Desligamentos</strong></td><td style="text-align:right">${saidas.length}</td></tr>
+      <tr><td><strong>Receita Total Prevista</strong></td><td style="text-align:right">R$ ${totalRec.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td></tr>
+      <tr><td><strong>Receita Recebida</strong></td><td style="text-align:right">R$ ${totalPago.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td></tr>
+      <tr><td><strong>Total de Gastos Fixos</strong></td><td style="text-align:right">R$ ${totalGastos.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td></tr>
+      <tr><td><strong>Folha de Pagamento</strong></td><td style="text-align:right">R$ ${totalFolha.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td></tr>
+      <tr style="font-weight:bold;background:#f0fdf4"><td><strong>Saldo Estimado</strong></td><td style="text-align:right;color:${saldo>=0?'#065f46':'#991b1b'}">R$ ${saldo.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td></tr>
+    </table>
+
+    <div class="folha-section" style="margin-top:20px;">Mensalidades dos Pacientes</div>
+    <div class="folha-linha-simples"></div>
+    <table class="folha-table">
+      <thead><tr><th>Paciente</th><th style="text-align:right">Valor</th><th style="text-align:center">Status</th><th style="text-align:center">Data Pgto</th></tr></thead>
+      <tbody>${rowsPags || '<tr><td colspan="4" style="text-align:center;color:#94a3b8;">Nenhum paciente ativo.</td></tr>'}</tbody>
+    </table>
+
+    ${gastos?.length ? `
+    <div class="folha-section" style="margin-top:20px;">Gastos Fixos do Mês</div>
+    <div class="folha-linha-simples"></div>
+    <table class="folha-table">
+      <thead><tr><th>Categoria</th><th>Descrição</th><th style="text-align:right">Valor</th><th style="text-align:center">Status</th></tr></thead>
+      <tbody>${rowsGastos}</tbody>
+    </table>` : ''}
+
+    <div class="folha-rodape">${instituicao.nome || 'Sistema CT'} · Relatório gerado automaticamente em ${new Date().toLocaleString('pt-BR')} · Documento confidencial</div>
+  </div>`;
+
+  mostrarPreview('Relatório Mensal — ' + mesLabel, html);
+}
+
+// ── EVOLUÇÃO CLÍNICA ────────────────────────────────────
+async function gerarEvolucao(pac) {
+  mostrarCarregando('Relatório de Evolução');
+
+  const [{ data: evolucoes }, { data: escalas }] = await Promise.all([
+    supabase.from('evolucoes').select('*').eq('paciente_id', pac.id).order('data_evolucao', { ascending: false }),
+    supabase.from('escalas_aplicadas').select('*').eq('paciente_id', pac.id).order('data_aplicacao', { ascending: false }),
+  ]);
+
+  const TIPO_LABELS = { terapeutica:'Terapêutica', psicologica:'Psicológica' };
+  const rowsEvol = (evolucoes||[]).map(e => `
+    <tr>
+      <td style="white-space:nowrap;">${fmtData(e.data_evolucao)}</td>
+      <td>${TIPO_LABELS[e.tipo]||e.tipo}</td>
+      <td>${e.profissional||'—'}</td>
+      <td style="font-size:10pt;">${e.descricao||''}</td>
+    </tr>`).join('');
+
+  const ESCALA_NAMES = { phq9:'PHQ-9', gad7:'GAD-7', audit:'AUDIT', assist:'ASSIST' };
+  const rowsEsc = (escalas||[]).map(e => {
+    const cls = { minima:'Mínimo', leve:'Leve', moderada:'Moderado', grave:'Grave' }[e.classificacao] || e.classificacao;
+    return `<tr>
+      <td>${fmtData(e.data_aplicacao)}</td>
+      <td>${ESCALA_NAMES[e.tipo_escala]||e.tipo_escala}</td>
+      <td style="text-align:center;font-weight:bold;">${e.pontuacao_total}</td>
+      <td>${cls}</td>
+      <td>${e.profissional||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  const diasTrat = pac.data_inicio_contrato
+    ? Math.ceil((new Date() - new Date(pac.data_inicio_contrato)) / 86400000)
+    : '—';
+
+  const html = `<div class="folha folha-preview">
+    ${cabecalho('RELATÓRIO DE EVOLUÇÃO CLÍNICA', pac.nome)}
+
+    <div class="folha-section">Dados do Paciente</div>
+    <div class="folha-linha-simples"></div>
+    <div class="folha-campo"><strong>Nome:</strong> ${pac.nome}</div>
+    <div class="folha-campo"><strong>Data de Nascimento:</strong> ${fmtData(pac.data_nascimento)}</div>
+    <div class="folha-campo"><strong>Terapeuta:</strong> ${pac.terapeuta||'—'}</div>
+    <div class="folha-campo"><strong>Psicólogo:</strong> ${pac.psicologo||'—'}</div>
+    <div class="folha-campo"><strong>Data de Entrada:</strong> ${fmtData(pac.data_inicio_contrato)}</div>
+    <div class="folha-campo"><strong>Dias em Tratamento:</strong> ${diasTrat} dias</div>
+    ${pac.data_desligamento ? `<div class="folha-campo"><strong>Data de Desligamento:</strong> ${fmtData(pac.data_desligamento)}</div>` : ''}
+
+    <div class="folha-section" style="margin-top:20px;">Histórico de Evoluções (${(evolucoes||[]).length} registros)</div>
+    <div class="folha-linha-simples"></div>
+    ${rowsEvol ? `<table class="folha-table">
+      <thead><tr><th>Data</th><th>Tipo</th><th>Profissional</th><th>Evolução</th></tr></thead>
+      <tbody>${rowsEvol}</tbody>
+    </table>` : '<p style="color:#888;font-style:italic;">Nenhuma evolução registrada.</p>'}
+
+    ${escalas?.length ? `
+    <div class="folha-section" style="margin-top:20px;">Escalas Clínicas Aplicadas</div>
+    <div class="folha-linha-simples"></div>
+    <table class="folha-table">
+      <thead><tr><th>Data</th><th>Escala</th><th style="text-align:center">Pontuação</th><th>Classificação</th><th>Profissional</th></tr></thead>
+      <tbody>${rowsEsc}</tbody>
+    </table>` : ''}
+
+    <div class="folha-assinatura">
+      <div class="folha-assinatura-bloco">
+        <div class="folha-assinatura-linha">${pac.terapeuta||'Terapeuta Responsável'}</div>
+      </div>
+      <div class="folha-assinatura-bloco">
+        <div class="folha-assinatura-linha">${pac.psicologo||'Psicólogo(a) Responsável'}</div>
+      </div>
+    </div>
+
+    <div class="folha-rodape">${instituicao.nome || 'Sistema CT'} · Relatório gerado automaticamente em ${new Date().toLocaleString('pt-BR')} · Documento confidencial</div>
+  </div>`;
+
+  mostrarPreview('Relatório de Evolução — ' + pac.nome, html);
+}
+
+// ── FICHA DE ACOLHIMENTO ────────────────────────────────
+async function gerarAcolhimento(pac) {
+  const html = `<div class="folha folha-preview">
+    ${cabecalho('FICHA DE ACOLHIMENTO', 'Registro de Entrada do Paciente')}
+
+    <div class="folha-section">Dados Pessoais</div>
+    <div class="folha-linha-simples"></div>
+    <div class="folha-campo"><strong>Nome Completo:</strong> ${pac.nome}</div>
+    <div class="folha-campo"><strong>Data de Nascimento:</strong> ${fmtData(pac.data_nascimento)}</div>
+    <div class="folha-campo"><strong>CPF:</strong> ${pac.cpf||'—'}</div>
+    <div class="folha-campo"><strong>RG:</strong> ${pac.rg||'—'}</div>
+
+    <div class="folha-section" style="margin-top:16px;">Dados do Responsável</div>
+    <div class="folha-linha-simples"></div>
+    <div class="folha-campo"><strong>Nome:</strong> ${pac.responsavel_nome||'—'}</div>
+    <div class="folha-campo"><strong>Parentesco:</strong> ${pac.parentesco||'—'}</div>
+    <div class="folha-campo"><strong>CPF:</strong> ${pac.responsavel_cpf||'—'}</div>
+    <div class="folha-campo"><strong>RG:</strong> ${pac.responsavel_rg||'—'}</div>
+    <div class="folha-campo"><strong>Telefone:</strong> ${pac.responsavel_telefone||'—'}</div>
+    <div class="folha-campo"><strong>Telefone 2:</strong> ${pac.responsavel_telefone2||'—'}</div>
+    <div class="folha-campo"><strong>Endereço:</strong> ${[pac.responsavel_endereco, pac.numero_residencia, pac.bairro, pac.cidade, pac.estado].filter(Boolean).join(', ')||'—'}</div>
+    <div class="folha-campo"><strong>CEP:</strong> ${pac.cep_responsavel||'—'}</div>
+
+    <div class="folha-section" style="margin-top:16px;">Contrato e Profissionais</div>
+    <div class="folha-linha-simples"></div>
+    <div class="folha-campo"><strong>Data de Entrada:</strong> ${fmtData(pac.data_inicio_contrato)}</div>
+    <div class="folha-campo"><strong>Previsão de Saída:</strong> ${fmtData(pac.data_fim_contrato)}</div>
+    <div class="folha-campo"><strong>Terapeuta:</strong> ${pac.terapeuta||'—'}</div>
+    <div class="folha-campo"><strong>Psicólogo(a):</strong> ${pac.psicologo||'—'}</div>
+
+    ${pac.observacoes ? `
+    <div class="folha-section" style="margin-top:16px;">Observações Iniciais</div>
+    <div class="folha-linha-simples"></div>
+    <p style="font-size:11pt;">${pac.observacoes}</p>` : ''}
+
+    <div class="folha-assinatura">
+      <div class="folha-assinatura-bloco">
+        <div class="folha-assinatura-linha">Assinatura do Responsável</div>
+      </div>
+      <div class="folha-assinatura-bloco">
+        <div class="folha-assinatura-linha">Assinatura do Profissional Admissão</div>
+      </div>
+    </div>
+
+    <div class="folha-rodape">${instituicao.nome || 'Sistema CT'} · Ficha gerada automaticamente em ${new Date().toLocaleString('pt-BR')}</div>
+  </div>`;
+
+  mostrarPreview('Ficha de Acolhimento — ' + pac.nome, html);
+}
+
+// ── DESLIGAMENTO ────────────────────────────────────────
+async function gerarDesligamento(pac) {
+  if (!pac.data_desligamento) {
+    alert('Este paciente não possui data de desligamento registrada.');
+    return;
+  }
+
+  const { data: evolucoes } = await supabase.from('evolucoes').select('*')
+    .eq('paciente_id', pac.id).order('data_evolucao', { ascending: false }).limit(5);
+
+  const dias = pac.data_inicio_contrato
+    ? Math.ceil((new Date(pac.data_desligamento) - new Date(pac.data_inicio_contrato)) / 86400000)
+    : '—';
+
+  const rowsEvol = (evolucoes||[]).map(e => `
+    <tr>
+      <td>${fmtData(e.data_evolucao)}</td>
+      <td>${e.tipo === 'terapeutica' ? 'Terapêutica' : 'Psicológica'}</td>
+      <td>${e.profissional||'—'}</td>
+      <td style="font-size:10pt;">${(e.descricao||'').slice(0,200)}${(e.descricao||'').length>200?'...':''}</td>
+    </tr>`).join('');
+
+  const html = `<div class="folha folha-preview">
+    ${cabecalho('RELATÓRIO DE DESLIGAMENTO', pac.nome)}
+
+    <div class="folha-section">Dados do Paciente</div>
+    <div class="folha-linha-simples"></div>
+    <div class="folha-campo"><strong>Nome:</strong> ${pac.nome}</div>
+    <div class="folha-campo"><strong>Data de Entrada:</strong> ${fmtData(pac.data_inicio_contrato)}</div>
+    <div class="folha-campo"><strong>Data de Desligamento:</strong> ${fmtData(pac.data_desligamento)}</div>
+    <div class="folha-campo"><strong>Tempo Total de Tratamento:</strong> ${dias} dias</div>
+    <div class="folha-campo"><strong>Motivo:</strong> ${pac.motivo_desligamento||'Não informado'}</div>
+    <div class="folha-campo"><strong>Terapeuta:</strong> ${pac.terapeuta||'—'}</div>
+    <div class="folha-campo"><strong>Psicólogo(a):</strong> ${pac.psicologo||'—'}</div>
+
+    <div class="folha-section" style="margin-top:20px;">Últimas Evoluções Registradas</div>
+    <div class="folha-linha-simples"></div>
+    ${rowsEvol ? `<table class="folha-table">
+      <thead><tr><th>Data</th><th>Tipo</th><th>Profissional</th><th>Registro</th></tr></thead>
+      <tbody>${rowsEvol}</tbody>
+    </table>` : '<p style="color:#888;font-style:italic;">Nenhuma evolução registrada.</p>'}
+
+    <div class="folha-assinatura">
+      <div class="folha-assinatura-bloco">
+        <div class="folha-assinatura-linha">${pac.terapeuta||'Terapeuta Responsável'}</div>
+      </div>
+      <div class="folha-assinatura-bloco">
+        <div class="folha-assinatura-linha">Coordenação / Direção</div>
+      </div>
+    </div>
+
+    <div class="folha-rodape">${instituicao.nome || 'Sistema CT'} · Documento gerado em ${new Date().toLocaleString('pt-BR')} · Confidencial</div>
+  </div>`;
+
+  mostrarPreview('Relatório de Desligamento — ' + pac.nome, html);
+}
+
+// ── MEDICAÇÃO ────────────────────────────────────────────
+async function gerarMedicacao(pac) {
+  mostrarCarregando('Relatório de Medicação');
+  const { data: meds } = await supabase.from('medicamentos').select('*')
+    .eq('paciente_id', pac.id).eq('ativo', true).order('nome');
+
+  const rowsMeds = (meds||[]).map(m => {
+    const horas = (m.horarios||[]).join(', ') || '—';
+    let estoque = '—';
+    if (m.qtd_estoque) {
+      const cpDay = (m.horarios||[1]).length * (m.cp_por_dose||1);
+      const dias  = cpDay > 0 ? Math.floor(m.qtd_estoque / cpDay) : '?';
+      estoque = `${m.qtd_estoque}cp (≈${dias}d)`;
+    }
+    return `<tr>
+      <td><strong>${m.nome}</strong>${m.dosagem ? ` ${m.dosagem}` : ''}</td>
+      <td>${m.posologia||'—'}</td>
+      <td>${m.via_administracao||'—'}</td>
+      <td style="text-align:center">${horas}</td>
+      <td style="text-align:center">${estoque}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<div class="folha folha-preview">
+    ${cabecalho('RELATÓRIO DE MEDICAÇÃO', pac.nome)}
+
+    <div class="folha-section">Paciente</div>
+    <div class="folha-linha-simples"></div>
+    <div class="folha-campo"><strong>Nome:</strong> ${pac.nome}</div>
+    <div class="folha-campo"><strong>Terapeuta:</strong> ${pac.terapeuta||'—'}</div>
+    <div class="folha-campo"><strong>Data Emissão:</strong> ${new Date().toLocaleDateString('pt-BR')}</div>
+
+    <div class="folha-section" style="margin-top:20px;">Medicamentos Ativos (${(meds||[]).length})</div>
+    <div class="folha-linha-simples"></div>
+    ${rowsMeds ? `<table class="folha-table">
+      <thead><tr><th>Medicamento</th><th>Posologia</th><th>Via</th><th style="text-align:center">Horários</th><th style="text-align:center">Estoque</th></tr></thead>
+      <tbody>${rowsMeds}</tbody>
+    </table>` : '<p style="color:#888;font-style:italic;">Nenhum medicamento ativo.</p>'}
+
+    <div style="margin-top:40px;">
+      <div class="folha-campo"><strong>Observações de Enfermagem:</strong></div>
+      <div style="border:1px solid #ccc;border-radius:4px;min-height:60px;margin-top:6px;padding:8px;"></div>
+    </div>
+
+    <div class="folha-assinatura">
+      <div class="folha-assinatura-bloco">
+        <div class="folha-assinatura-linha">Enfermeiro(a) Responsável</div>
+      </div>
+      <div class="folha-assinatura-bloco">
+        <div class="folha-assinatura-linha">Médico Prescritor</div>
+      </div>
+    </div>
+
+    <div class="folha-rodape">${instituicao.nome || 'Sistema CT'} · Documento gerado em ${new Date().toLocaleString('pt-BR')}</div>
+  </div>`;
+
+  mostrarPreview('Relatório de Medicação — ' + pac.nome, html);
+}
+
+// ── OCUPAÇÃO DE LEITOS ──────────────────────────────────
+async function gerarOcupacao() {
+  mostrarCarregando('Ocupação de Leitos');
+  const [{ data: quartos }, { data: leitos }] = await Promise.all([
+    supabase.from('quartos').select('*').eq('instituicao_id', instituicaoId).order('ala').order('nome'),
+    supabase.from('leitos').select('*').eq('instituicao_id', instituicaoId).order('nome'),
+  ]);
+
+  const total    = (leitos||[]).length;
+  const ocupados = (leitos||[]).filter(l => l.status === 'ocupado').length;
+  const livres   = (leitos||[]).filter(l => l.status === 'livre').length;
+  const outros   = total - ocupados - livres;
+  const pct      = total > 0 ? Math.round((ocupados/total)*100) : 0;
+
+  const rows = (quartos||[]).map(q => {
+    const ls = (leitos||[]).filter(l => l.quarto_id === q.id);
+    return ls.map(l => {
+      const STATUS = { ocupado:'Ocupado', livre:'Livre', manutencao:'Manutenção', reservado:'Reservado' };
+      return `<tr>
+        <td>${q.nome}${q.ala ? ` — ${q.ala}` : ''}</td>
+        <td>${l.nome}</td>
+        <td><span class="folha-badge">${STATUS[l.status]||l.status}</span></td>
+        <td>${l.paciente_nome||'—'}</td>
+        <td>${l.data_ocupacao ? fmtData(l.data_ocupacao) : '—'}</td>
+      </tr>`;
+    }).join('');
+  }).join('');
+
+  const html = `<div class="folha folha-preview">
+    ${cabecalho('MAPA DE OCUPAÇÃO', `Emitido em ${new Date().toLocaleDateString('pt-BR')}`)}
+
+    <div class="folha-section">Resumo</div>
+    <div class="folha-linha-simples"></div>
+    <table class="folha-table">
+      <tr><td><strong>Total de Leitos</strong></td><td style="text-align:right">${total}</td></tr>
+      <tr><td><strong>Ocupados</strong></td><td style="text-align:right">${ocupados}</td></tr>
+      <tr><td><strong>Livres / Disponíveis</strong></td><td style="text-align:right">${livres}</td></tr>
+      <tr><td><strong>Manutenção / Reservados</strong></td><td style="text-align:right">${outros}</td></tr>
+      <tr><td><strong>Taxa de Ocupação</strong></td><td style="text-align:right;font-weight:bold;">${pct}%</td></tr>
+    </table>
+
+    <div class="folha-section" style="margin-top:20px;">Detalhamento por Leito</div>
+    <div class="folha-linha-simples"></div>
+    ${rows ? `<table class="folha-table">
+      <thead><tr><th>Quarto / Ala</th><th>Leito</th><th>Status</th><th>Paciente</th><th>Desde</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>` : '<p style="color:#888;font-style:italic;">Nenhum quarto cadastrado.</p>'}
+
+    <div class="folha-rodape">${instituicao.nome || 'Sistema CT'} · Mapa gerado em ${new Date().toLocaleString('pt-BR')}</div>
+  </div>`;
+
+  mostrarPreview('Mapa de Ocupação de Leitos', html);
+}
+
+// ── HELPERS DE UI ───────────────────────────────────────
+function mostrarCarregando(titulo) {
+  document.getElementById('previewWrap').style.display = '';
+  document.getElementById('previewTitulo').textContent = titulo;
+  document.getElementById('previewBody').innerHTML = `<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;">⏳ Gerando relatório...</div>`;
+  document.getElementById('previewWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function mostrarPreview(titulo, html) {
+  document.getElementById('previewTitulo').textContent = titulo;
+  document.getElementById('previewBody').innerHTML = html;
+  document.getElementById('btnImprimir').style.display = '';
+}
+
+function fecharPreview() {
+  document.getElementById('previewWrap').style.display = 'none';
+  document.getElementById('btnImprimir').style.display = 'none';
+}
+
+function imprimirPreview() {
+  const conteudo = document.getElementById('previewBody').innerHTML;
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html lang="pt-br"><head>
+    <meta charset="UTF-8">
+    <title>Relatório — Sistema CT</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.7; color: #000; background: white; }
+      .folha { max-width: 100%; padding: 0; }
+      .folha-preview { padding: 0; }
+      .folha-header { text-align: center; margin-bottom: 24px; }
+      .folha-titulo { font-size: 18pt; font-weight: bold; margin-bottom: 4px; }
+      .folha-linha { border: none; border-top: 2px solid #000; margin: 14px 0; }
+      .folha-linha-simples { border: none; border-top: 1px solid #ccc; margin: 10px 0; }
+      .folha-section { margin: 16px 0 8px; font-size: 13pt; font-weight: bold; text-transform: uppercase; letter-spacing: .5px; }
+      .folha-campo { margin: 5px 0; }
+      .folha-campo strong { min-width: 180px; display: inline-block; }
+      .folha-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 11pt; }
+      .folha-table th { background: #f1f5f9; border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 10pt; text-transform: uppercase; }
+      .folha-table td { border: 1px solid #ccc; padding: 7px 10px; }
+      .folha-table tr:nth-child(even) td { background: #fafafa; }
+      .folha-assinatura { margin-top: 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+      .folha-assinatura-bloco { text-align: center; }
+      .folha-assinatura-linha { border-top: 1px solid #000; padding-top: 6px; margin-top: 40px; font-size: 11pt; }
+      .folha-rodape { margin-top: 36px; font-size: 9pt; color: #888; text-align: center; border-top: 1px solid #ddd; padding-top: 8px; }
+      .folha-badge { display: inline-block; border: 1px solid #000; border-radius: 4px; padding: 2px 8px; font-size: 10pt; }
+      @page { margin: 18mm 20mm; }
+    </style>
+  </head><body>${conteudo}</body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 400);
+}
+
+function fmtData(iso) {
+  if (!iso) return '—';
+  const [a,m,d] = iso.split('T')[0].split('-');
+  return `${d}/${m}/${a}`;
+}
+
+iniciar();
+</script>
+</body>
+</html>

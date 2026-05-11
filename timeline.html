@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Timeline — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+<style>
+.tl-layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+@media (max-width: 900px) { .tl-layout { grid-template-columns: 1fr; } }
+
+.pac-list-sidebar { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; max-height: 80vh; display: flex; flex-direction: column; }
+.pac-list-header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 13.5px; background: var(--bg); }
+.pac-list-search { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.pac-list-search input { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: 'Inter', sans-serif; outline: none; }
+.pac-list-items { overflow-y: auto; flex: 1; }
+.pac-list-item { padding: 11px 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .12s; display: flex; align-items: center; gap: 10px; }
+.pac-list-item:hover { background: var(--bg); }
+.pac-list-item.selected { background: var(--primary-light); border-left: 3px solid var(--primary); }
+.pac-ini { width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.pac-list-item.selected .pac-ini { background: var(--primary); color: white; }
+
+/* Timeline */
+.tl-container { position: relative; padding: 8px 0 24px 0; }
+.tl-line { position: absolute; left: 28px; top: 0; bottom: 0; width: 2px; background: var(--border); border-radius: 2px; }
+.tl-item { position: relative; padding: 0 0 24px 68px; }
+.tl-item:last-child { padding-bottom: 0; }
+.tl-dot { position: absolute; left: 16px; top: 4px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; border: 2px solid white; box-shadow: 0 0 0 2px var(--border); z-index: 1; }
+.tl-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-sm); position: relative; transition: box-shadow .15s; }
+.tl-card:hover { box-shadow: var(--shadow-md); }
+.tl-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.tl-tipo-badge { padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.tl-titulo { font-weight: 600; font-size: 14px; color: var(--text-primary); flex: 1; }
+.tl-meta { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.tl-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; white-space: pre-wrap; }
+.tl-del { background: none; border: none; cursor: pointer; font-size: 13px; color: var(--text-muted); padding: 2px 5px; border-radius: 4px; transition: all .12s; }
+.tl-del:hover { background: var(--danger-light); color: var(--danger); }
+
+.tl-empty { padding: 48px; text-align: center; color: var(--text-muted); }
+
+/* Tipos */
+.tipo-entrada      { background: #ecfdf5; color: #065f46; }
+.tipo-saida        { background: #fef2f2; color: #991b1b; }
+.tipo-recaida      { background: #fef2f2; color: #991b1b; }
+.tipo-advertencia  { background: #fffbeb; color: #92400e; }
+.tipo-visita       { background: #f5f3ff; color: #5b21b6; }
+.tipo-evolucao     { background: #eff6ff; color: #1e40af; }
+.tipo-medicacao    { background: #ecfdf5; color: #065f46; }
+.tipo-intercorrencia { background: #fef2f2; color: #991b1b; }
+.tipo-outro        { background: var(--bg); color: var(--text-secondary); }
+
+.dot-entrada       { background: #10b981; }
+.dot-saida         { background: #ef4444; }
+.dot-recaida       { background: #ef4444; }
+.dot-advertencia   { background: #f59e0b; }
+.dot-visita        { background: #8b5cf6; }
+.dot-evolucao      { background: #2563eb; }
+.dot-medicacao     { background: #10b981; }
+.dot-intercorrencia{ background: #ef4444; }
+.dot-outro         { background: #94a3b8; }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(2px); }
+.modal-box { background: white; border-radius: var(--radius-xl); width: 100%; max-width: 500px; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; }
+.modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-secondary); }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+
+.filtro-tipos { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.filtro-chip { padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--bg); color: var(--text-secondary); transition: all .14s; }
+.filtro-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="sidebar"></div>
+<div class="content">
+
+  <div class="header-page">
+    <div>
+      <h1>📌 Timeline do Paciente</h1>
+      <p class="page-subtitle">Linha do tempo cronológica de eventos por paciente</p>
+    </div>
+  </div>
+
+  <div class="tl-layout">
+
+    <!-- Sidebar pacientes -->
+    <div class="pac-list-sidebar">
+      <div class="pac-list-header">👤 Selecione o Paciente</div>
+      <div class="pac-list-search">
+        <input type="text" id="searchPac" placeholder="Buscar..." oninput="filtrarPacs()">
+      </div>
+      <div class="pac-list-items" id="pacList"></div>
+    </div>
+
+    <!-- Área principal -->
+    <div>
+      <div id="estadoVazio" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:48px;text-align:center;color:#94a3b8;">
+        <div style="font-size:36px;margin-bottom:12px;">📌</div>
+        <strong>Selecione um paciente</strong>
+        <p style="margin-top:4px;font-size:13px;">Escolha ao lado para ver a linha do tempo.</p>
+      </div>
+
+      <div id="areaTimeline" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+          <h2 style="font-size:17px;font-weight:700;" id="nomePacTL">—</h2>
+          <button class="btn-primary" onclick="abrirModal()">+ Novo Evento</button>
+        </div>
+
+        <!-- Filtros de tipo -->
+        <div class="filtro-tipos" id="filtroTipos">
+          <span class="filtro-chip active" data-tipo="" onclick="setFiltro('',this)">Todos</span>
+          <span class="filtro-chip" data-tipo="entrada" onclick="setFiltro('entrada',this)">🟢 Entrada</span>
+          <span class="filtro-chip" data-tipo="saida" onclick="setFiltro('saida',this)">🔴 Saída</span>
+          <span class="filtro-chip" data-tipo="recaida" onclick="setFiltro('recaida',this)">⚠️ Recaída</span>
+          <span class="filtro-chip" data-tipo="advertencia" onclick="setFiltro('advertencia',this)">🟡 Advertência</span>
+          <span class="filtro-chip" data-tipo="visita" onclick="setFiltro('visita',this)">🟣 Visita</span>
+          <span class="filtro-chip" data-tipo="evolucao" onclick="setFiltro('evolucao',this)">🔵 Evolução</span>
+          <span class="filtro-chip" data-tipo="medicacao" onclick="setFiltro('medicacao',this)">💊 Medicação</span>
+          <span class="filtro-chip" data-tipo="intercorrencia" onclick="setFiltro('intercorrencia',this)">🚨 Intercorrência</span>
+          <span class="filtro-chip" data-tipo="outro" onclick="setFiltro('outro',this)">📋 Outro</span>
+        </div>
+
+        <!-- Timeline -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);padding:24px;">
+          <div class="tl-container">
+            <div class="tl-line"></div>
+            <div id="timelineList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal novo evento -->
+<div class="modal-overlay" id="modalEvento" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>📌 Novo Evento na Timeline</h2>
+      <button class="modal-close" onclick="fecharModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Data *</label>
+          <input type="date" id="evData">
+        </div>
+        <div class="form-group">
+          <label>Hora</label>
+          <input type="time" id="evHora">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Tipo de Evento *</label>
+        <select id="evTipo">
+          <option value="entrada">🟢 Entrada</option>
+          <option value="saida">🔴 Saída</option>
+          <option value="recaida">⚠️ Recaída</option>
+          <option value="advertencia">🟡 Advertência</option>
+          <option value="visita">🟣 Visita</option>
+          <option value="evolucao">🔵 Evolução Clínica</option>
+          <option value="medicacao">💊 Medicação</option>
+          <option value="intercorrencia">🚨 Intercorrência</option>
+          <option value="outro">📋 Outro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Título</label>
+        <input type="text" id="evTitulo" placeholder="Ex: Visita da família, Crise de ansiedade...">
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <textarea id="evDesc" rows="3" placeholder="Detalhes do evento..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Profissional responsável</label>
+        <input type="text" id="evProf" placeholder="Nome do profissional">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="salvarEvento()">💾 Salvar</button>
+      <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
+      <span id="fbEvento" style="font-size:13px;color:#64748b;margin-left:8px;"></span>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script src="sidebar.js"></script>
+<script>
+let instituicaoId = null;
+let pacienteSel = null;
+let pacientesCache = [];
+let eventosCache = [];
+let filtroAtivo = '';
+
+const TIPO_ICONS = {
+  entrada:'🟢', saida:'🔴', recaida:'⚠️', advertencia:'🟡',
+  visita:'🟣', evolucao:'🔵', medicacao:'💊', intercorrencia:'🚨', outro:'📋'
+};
+const TIPO_LABELS = {
+  entrada:'Entrada', saida:'Saída', recaida:'Recaída', advertencia:'Advertência',
+  visita:'Visita', evolucao:'Evolução', medicacao:'Medicação', intercorrencia:'Intercorrência', outro:'Outro'
+};
+
+async function iniciar() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  const { data: u } = await supabase.from('usuarios').select('instituicao_id').eq('id', session.user.id).single();
+  if (!u) return;
+  instituicaoId = u.instituicao_id;
+  await carregarPacientes();
+}
+
+async function carregarPacientes() {
+  const { data } = await supabase.from('pacientes').select('id, nome')
+    .eq('instituicao_id', instituicaoId).order('nome');
+  pacientesCache = data || [];
+  renderPacList(pacientesCache);
+}
+
+function renderPacList(lista) {
+  document.getElementById('pacList').innerHTML = lista.map(p => {
+    const ini = p.nome.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
+    const sel = pacienteSel?.id === p.id ? 'selected' : '';
+    return `<div class="pac-list-item ${sel}" onclick="selecionarPaciente('${p.id}')">
+      <div class="pac-ini">${ini}</div>
+      <div style="font-size:13.5px;font-weight:500;">${p.nome}</div>
+    </div>`;
+  }).join('') || `<div style="padding:20px;color:#94a3b8;font-size:13px;text-align:center;">Nenhum paciente.</div>`;
+}
+
+function filtrarPacs() {
+  const q = document.getElementById('searchPac').value.toLowerCase();
+  renderPacList(pacientesCache.filter(p => p.nome.toLowerCase().includes(q)));
+}
+
+async function selecionarPaciente(id) {
+  pacienteSel = pacientesCache.find(p => p.id === id);
+  document.getElementById('estadoVazio').style.display = 'none';
+  document.getElementById('areaTimeline').style.display = '';
+  document.getElementById('nomePacTL').textContent = `📌 ${pacienteSel.nome}`;
+  renderPacList(pacientesCache);
+  await carregarEventos();
+}
+
+async function carregarEventos() {
+  const { data } = await supabase.from('timeline_paciente').select('*')
+    .eq('paciente_id', pacienteSel.id)
+    .order('data_evento', { ascending: false })
+    .order('hora_evento', { ascending: false });
+  eventosCache = data || [];
+  renderTimeline();
+}
+
+function setFiltro(tipo, el) {
+  filtroAtivo = tipo;
+  document.querySelectorAll('.filtro-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderTimeline();
+}
+
+function renderTimeline() {
+  const lista = filtroAtivo
+    ? eventosCache.filter(e => e.tipo === filtroAtivo)
+    : eventosCache;
+
+  if (!lista.length) {
+    document.getElementById('timelineList').innerHTML =
+      `<div class="tl-empty"><div style="font-size:32px;margin-bottom:12px;">📭</div><strong>Nenhum evento registrado</strong><p style="margin-top:4px;font-size:13px;">Adicione o primeiro evento na timeline.</p></div>`;
+    return;
+  }
+
+  // Agrupar por data
+  const porData = {};
+  lista.forEach(e => {
+    if (!porData[e.data_evento]) porData[e.data_evento] = [];
+    porData[e.data_evento].push(e);
+  });
+
+  let html = '';
+  Object.keys(porData).sort((a,b) => b.localeCompare(a)).forEach(data => {
+    html += `<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-secondary);margin:0 0 12px 0;padding:4px 0;border-bottom:1px solid var(--border);">📅 ${formatarData(data)}</div>`;
+    porData[data].forEach(e => {
+      html += `<div class="tl-item">
+        <div class="tl-dot dot-${e.tipo}">${TIPO_ICONS[e.tipo]||'📋'}</div>
+        <div class="tl-card">
+          <div class="tl-card-header">
+            <div>
+              <span class="tl-tipo-badge tipo-${e.tipo}">${TIPO_LABELS[e.tipo]||e.tipo}</span>
+              ${e.titulo ? `<div class="tl-titulo" style="margin-top:6px;">${e.titulo}</div>` : ''}
+            </div>
+            <button class="tl-del" onclick="deletarEvento('${e.id}')">✕</button>
+          </div>
+          <div class="tl-meta">
+            ${e.hora_evento ? `<span>🕐 ${e.hora_evento.slice(0,5)}</span>` : ''}
+            ${e.profissional ? `<span>👤 ${e.profissional}</span>` : ''}
+          </div>
+          ${e.descricao ? `<div class="tl-desc">${e.descricao}</div>` : ''}
+        </div>
+      </div>`;
+    });
+  });
+  document.getElementById('timelineList').innerHTML = html;
+}
+
+function abrirModal() {
+  document.getElementById('evData').value = new Date().toISOString().split('T')[0];
+  document.getElementById('evHora').value = new Date().toTimeString().slice(0,5);
+  document.getElementById('evTitulo').value = '';
+  document.getElementById('evDesc').value = '';
+  document.getElementById('evProf').value = '';
+  document.getElementById('fbEvento').textContent = '';
+  document.getElementById('modalEvento').style.display = 'flex';
+}
+
+function fecharModal() { document.getElementById('modalEvento').style.display = 'none'; }
+
+async function salvarEvento() {
+  const fb = document.getElementById('fbEvento');
+  const data_evento = document.getElementById('evData').value;
+  const tipo = document.getElementById('evTipo').value;
+  if (!data_evento || !tipo) { fb.textContent='Preencha data e tipo.'; fb.style.color='#ef4444'; return; }
+  fb.textContent='Salvando...'; fb.style.color='#64748b';
+
+  const { error } = await supabase.from('timeline_paciente').insert([{
+    instituicao_id: instituicaoId,
+    paciente_id: pacienteSel.id,
+    data_evento,
+    hora_evento: document.getElementById('evHora').value || null,
+    tipo,
+    titulo: document.getElementById('evTitulo').value || null,
+    descricao: document.getElementById('evDesc').value || null,
+    profissional: document.getElementById('evProf').value || null,
+  }]);
+
+  if (error) { fb.textContent='Erro: '+error.message; fb.style.color='#ef4444'; return; }
+  if (typeof registrarLog === 'function')
+    registrarLog('criar', 'timeline', pacienteSel.nome, `Evento "${TIPO_LABELS[tipo]}" registrado na timeline`);
+  fb.textContent='✅ Salvo!'; fb.style.color='#10b981';
+  setTimeout(() => { fecharModal(); carregarEventos(); }, 1200);
+}
+
+async function deletarEvento(id) {
+  if (!confirm('Excluir este evento da timeline?')) return;
+  await supabase.from('timeline_paciente').delete().eq('id', id);
+  await carregarEventos();
+}
+
+function formatarData(iso) {
+  if (!iso) return '—';
+  const [a,m,d] = iso.split('-');
+  const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  return `${d} de ${meses[parseInt(m)-1]} de ${a}`;
+}
+
+iniciar();
+</script>
+</body>
+</html>

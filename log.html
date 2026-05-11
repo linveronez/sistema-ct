@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Log de Atividades — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+<style>
+.log-filters {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 14px 18px;
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+  margin-bottom: 20px; box-shadow: var(--shadow-sm);
+}
+.log-filters input, .log-filters select {
+  height: 36px; padding: 0 12px; border: 1px solid var(--border);
+  border-radius: var(--radius-md); font-size: 13px; font-family: 'Inter',sans-serif;
+  background: var(--bg); outline: none; transition: border-color .18s;
+}
+.log-filters input:focus, .log-filters select:focus { border-color: var(--primary); }
+.log-filters input { min-width: 200px; }
+
+.log-table { width: 100%; border-collapse: collapse; }
+.log-table th {
+  padding: 11px 16px; text-align: left; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .5px; color: var(--text-secondary);
+  background: var(--bg); border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.log-table td {
+  padding: 11px 16px; font-size: 13px; border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.log-table tr:last-child td { border-bottom: none; }
+.log-table tbody tr:hover td { background: #f8fafc; }
+
+.acao-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 20px; font-size: 11.5px; font-weight: 600;
+}
+.acao-criar   { background: #ecfdf5; color: #065f46; }
+.acao-editar  { background: #eff6ff; color: #1e40af; }
+.acao-excluir { background: #fef2f2; color: #991b1b; }
+.acao-login   { background: #f5f3ff; color: #5b21b6; }
+.acao-pagar   { background: #fffbeb; color: #92400e; }
+.acao-outro   { background: var(--bg); color: var(--text-secondary); }
+
+.entidade-chip {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  font-size: 11px; font-weight: 500; background: var(--bg); color: var(--text-secondary);
+}
+
+.log-vazio { padding: 48px; text-align: center; color: var(--text-muted); }
+.log-vazio .icon { font-size: 36px; margin-bottom: 12px; }
+
+.paginacao { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-top: 1px solid var(--border); justify-content: space-between; }
+.paginacao button { padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg); cursor: pointer; font-size: 13px; font-family: 'Inter',sans-serif; transition: all .14s; }
+.paginacao button:hover { background: var(--primary); color: white; border-color: var(--primary); }
+.paginacao button:disabled { opacity:.4; cursor:default; }
+.paginacao .pag-info { font-size: 13px; color: var(--text-secondary); }
+
+.stats-log { display: grid; grid-template-columns: repeat(auto-fill,minmax(160px,1fr)); gap: 14px; margin-bottom: 20px; }
+.stat-log-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; box-shadow: var(--shadow-sm); }
+.stat-log-card .lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-secondary); margin-bottom: 4px; }
+.stat-log-card .val { font-family: 'Plus Jakarta Sans',sans-serif; font-size: 26px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div class="sidebar"></div>
+<div class="content">
+
+  <div class="header-page">
+    <div>
+      <h1>Log de Atividades</h1>
+      <p class="page-subtitle">Auditoria de todas as ações realizadas no sistema</p>
+    </div>
+    <button class="btn-secondary" onclick="exportarCSV()">📥 Exportar CSV</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-log" id="statsLog"></div>
+
+  <!-- Filtros -->
+  <div class="log-filters">
+    <input type="text" id="filtroTexto" placeholder="🔍 Buscar..." oninput="aplicarFiltros()">
+    <select id="filtroAcao" onchange="aplicarFiltros()">
+      <option value="">Todas as ações</option>
+      <option value="criar">✅ Criado</option>
+      <option value="editar">✏️ Editado</option>
+      <option value="excluir">🗑️ Excluído</option>
+      <option value="login">🔐 Login</option>
+      <option value="pagar">💳 Pagamento</option>
+    </select>
+    <select id="filtroEntidade" onchange="aplicarFiltros()">
+      <option value="">Todas as entidades</option>
+      <option value="paciente">👤 Paciente</option>
+      <option value="evolucao">📝 Evolução</option>
+      <option value="medicamento">💊 Medicamento</option>
+      <option value="pagamento">💰 Pagamento</option>
+      <option value="funcionario">👥 Funcionário</option>
+      <option value="gasto">🧾 Gasto</option>
+      <option value="contrato">📋 Contrato</option>
+    </select>
+    <input type="date" id="filtroDataIni" onchange="aplicarFiltros()" title="Data inicial">
+    <input type="date" id="filtroDataFim" onchange="aplicarFiltros()" title="Data final">
+    <button class="btn-secondary" onclick="limparFiltros()" style="white-space:nowrap;">✕ Limpar</button>
+  </div>
+
+  <!-- Tabela -->
+  <div class="table-wrapper">
+    <div class="card-header">
+      <span class="card-title">📋 Registros de Atividade</span>
+      <span id="contadorLog" style="font-size:12px;color:var(--text-secondary);"></span>
+    </div>
+    <div id="logBody">
+      <div class="log-vazio"><div class="icon">⏳</div><p>Carregando...</p></div>
+    </div>
+    <div class="paginacao" id="paginacao" style="display:none;">
+      <button id="btnAnterior" onclick="navPag(-1)">◀ Anterior</button>
+      <span class="pag-info" id="infoPag">—</span>
+      <button id="btnProximo" onclick="navPag(1)">Próximo ▶</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script src="sidebar.js"></script>
+<script>
+let instituicaoId = null;
+let logCache = [];
+let logFiltrado = [];
+let pagAtual = 1;
+const POR_PAG = 50;
+
+const ACAO_CLS = { criar:'acao-criar', editar:'acao-editar', excluir:'acao-excluir', login:'acao-login', pagar:'acao-pagar' };
+const ACAO_ICON = { criar:'✅', editar:'✏️', excluir:'🗑️', login:'🔐', pagar:'💳', outro:'📌' };
+const ENTIDADE_ICON = { paciente:'👤', evolucao:'📝', medicamento:'💊', pagamento:'💰', funcionario:'👥', gasto:'🧾', contrato:'📋', receita:'📋', agenda:'📅' };
+
+async function iniciar() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  const { data: u } = await supabase.from('usuarios').select('instituicao_id').eq('id',session.user.id).single();
+  if (!u) return;
+  instituicaoId = u.instituicao_id;
+
+  // Data padrão: últimos 30 dias
+  const hoje = new Date();
+  const ini  = new Date(hoje); ini.setDate(hoje.getDate()-30);
+  document.getElementById('filtroDataFim').value = hoje.toISOString().split('T')[0];
+  document.getElementById('filtroDataIni').value = ini.toISOString().split('T')[0];
+
+  await carregarLog();
+}
+
+async function carregarLog() {
+  const { data } = await supabase.from('log_atividades').select('*')
+    .eq('instituicao_id', instituicaoId)
+    .order('created_at', { ascending: false })
+    .limit(2000);
+  logCache = data || [];
+  calcularStats();
+  aplicarFiltros();
+}
+
+function calcularStats() {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const inicioSemana = new Date(hoje); inicioSemana.setDate(hoje.getDate()-7);
+
+  const total = logCache.length;
+  const hoje_count = logCache.filter(l => new Date(l.created_at) >= hoje).length;
+  const semana_count = logCache.filter(l => new Date(l.created_at) >= inicioSemana).length;
+  const excluidos = logCache.filter(l => l.acao === 'excluir').length;
+
+  document.getElementById('statsLog').innerHTML = `
+    <div class="stat-log-card"><div class="lbl">Total de Registros</div><div class="val">${total.toLocaleString('pt-BR')}</div></div>
+    <div class="stat-log-card"><div class="lbl">Hoje</div><div class="val" style="color:var(--primary);">${hoje_count}</div></div>
+    <div class="stat-log-card"><div class="lbl">Última Semana</div><div class="val" style="color:#8b5cf6;">${semana_count}</div></div>
+    <div class="stat-log-card"><div class="lbl">Exclusões</div><div class="val" style="color:var(--danger);">${excluidos}</div></div>`;
+}
+
+function aplicarFiltros() {
+  const txt   = document.getElementById('filtroTexto').value.toLowerCase();
+  const acao  = document.getElementById('filtroAcao').value;
+  const entid = document.getElementById('filtroEntidade').value;
+  const dataI = document.getElementById('filtroDataIni').value;
+  const dataF = document.getElementById('filtroDataFim').value;
+
+  logFiltrado = logCache.filter(l => {
+    if (acao   && l.acao !== acao) return false;
+    if (entid  && l.entidade !== entid) return false;
+    if (dataI  && l.created_at.slice(0,10) < dataI) return false;
+    if (dataF  && l.created_at.slice(0,10) > dataF) return false;
+    if (txt) {
+      const haystack = `${l.descricao||''} ${l.usuario_nome||''} ${l.entidade_nome||''}`.toLowerCase();
+      if (!haystack.includes(txt)) return false;
+    }
+    return true;
+  });
+
+  pagAtual = 1;
+  renderTabela();
+}
+
+function renderTabela() {
+  const inicio = (pagAtual-1)*POR_PAG;
+  const pagina = logFiltrado.slice(inicio, inicio+POR_PAG);
+  const total  = logFiltrado.length;
+  const totalPags = Math.ceil(total/POR_PAG) || 1;
+
+  document.getElementById('contadorLog').textContent = `${total.toLocaleString('pt-BR')} registro${total!==1?'s':''}`;
+
+  if (!pagina.length) {
+    document.getElementById('logBody').innerHTML = `<div class="log-vazio"><div class="icon">🔍</div><p>Nenhum registro encontrado.</p></div>`;
+    document.getElementById('paginacao').style.display = 'none';
+    return;
+  }
+
+  const rows = pagina.map(l => {
+    const acaoCls  = ACAO_CLS[l.acao] || 'acao-outro';
+    const acaoIcon = ACAO_ICON[l.acao] || '📌';
+    const entIcon  = ENTIDADE_ICON[l.entidade] || '📁';
+    const dtHr = new Date(l.created_at);
+    const dtFmt = dtHr.toLocaleDateString('pt-BR') + ' ' + dtHr.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    return `<tr>
+      <td style="white-space:nowrap;color:var(--text-secondary);font-size:12px;">${dtFmt}</td>
+      <td><span class="acao-badge ${acaoCls}">${acaoIcon} ${capitalizar(l.acao)}</span></td>
+      <td><span class="entidade-chip">${entIcon} ${capitalizar(l.entidade||'sistema')}</span></td>
+      <td style="max-width:340px;">${l.descricao || '—'}</td>
+      <td>${l.entidade_nome ? `<strong>${l.entidade_nome}</strong>` : '—'}</td>
+      <td style="font-size:12px;color:var(--text-secondary);">${l.usuario_nome || l.usuario_email || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('logBody').innerHTML = `
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Data/Hora</th><th>Ação</th><th>Entidade</th>
+          <th>Descrição</th><th>Referência</th><th>Usuário</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  // Paginação
+  document.getElementById('paginacao').style.display = total > POR_PAG ? 'flex' : 'none';
+  document.getElementById('infoPag').textContent = `Página ${pagAtual} de ${totalPags} · ${total.toLocaleString('pt-BR')} registros`;
+  document.getElementById('btnAnterior').disabled = pagAtual <= 1;
+  document.getElementById('btnProximo').disabled  = pagAtual >= totalPags;
+}
+
+function navPag(dir) {
+  pagAtual += dir;
+  renderTabela();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function limparFiltros() {
+  ['filtroTexto','filtroAcao','filtroEntidade','filtroDataIni','filtroDataFim'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  const hoje = new Date();
+  const ini  = new Date(hoje); ini.setDate(hoje.getDate()-30);
+  document.getElementById('filtroDataFim').value = hoje.toISOString().split('T')[0];
+  document.getElementById('filtroDataIni').value = ini.toISOString().split('T')[0];
+  aplicarFiltros();
+}
+
+function capitalizar(str) {
+  if (!str) return '—';
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function exportarCSV() {
+  const headers = ['Data/Hora','Ação','Entidade','Descrição','Referência','Usuário'];
+  const rows = logFiltrado.map(l => {
+    const dt = new Date(l.created_at).toLocaleString('pt-BR');
+    return [dt, l.acao, l.entidade, l.descricao, l.entidade_nome, l.usuario_nome||l.usuario_email].map(v=>`"${(v||'').replace(/"/g,'""')}"`).join(',');
+  });
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `log_atividades_${new Date().toISOString().split('T')[0]}.csv`;
+  link.click();
+}
+
+iniciar();
+</script>
+</body>
+</html>

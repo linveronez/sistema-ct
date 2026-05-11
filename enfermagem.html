@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Enfermagem — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+<style>
+.enf-layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+@media (max-width: 900px) { .enf-layout { grid-template-columns: 1fr; } }
+
+.pac-list-sidebar { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; max-height: 80vh; display: flex; flex-direction: column; }
+.pac-list-header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 13.5px; background: var(--bg); }
+.pac-list-search { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.pac-list-search input { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: 'Inter', sans-serif; outline: none; }
+.pac-list-items { overflow-y: auto; flex: 1; }
+.pac-list-item { padding: 11px 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .12s; display: flex; align-items: center; gap: 10px; }
+.pac-list-item:hover { background: var(--bg); }
+.pac-list-item.selected { background: var(--primary-light); border-left: 3px solid var(--primary); }
+.pac-ini { width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.pac-list-item.selected .pac-ini { background: var(--primary); color: white; }
+.pac-nome-list { font-size: 13.5px; font-weight: 500; }
+
+.med-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 16px; }
+.med-card-header { padding: 14px 20px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.med-item { padding: 14px 20px; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; }
+.med-item:last-child { border-bottom: none; }
+.med-nome { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.med-dose { font-size: 13px; }
+.med-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.med-chip { background: var(--primary-light); color: var(--primary); border-radius: 99px; padding: 3px 10px; font-size: 12px; font-weight: 500; }
+.med-chip.hora { background: #f0fdf4; color: #065f46; }
+.med-chip.via  { background: #f5f3ff; color: #5b21b6; }
+.med-chip.estoque-ok { background: #ecfdf5; color: #065f46; }
+.med-chip.estoque-warn { background: #fffbeb; color: #92400e; }
+.med-chip.estoque-crit { background: #fef2f2; color: #991b1b; }
+
+.med-form { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+.horarios-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.horario-item { display: flex; align-items: center; gap: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 8px; }
+.horario-item input[type=time] { border: none; background: none; font-size: 13px; font-family: 'Inter', sans-serif; outline: none; }
+.horario-item button { background: none; border: none; cursor: pointer; color: var(--danger); font-size: 14px; padding: 0 2px; }
+.btn-add-hora { background: var(--bg); border: 1px dashed var(--border); border-radius: var(--radius-sm); padding: 5px 12px; font-size: 13px; cursor: pointer; color: var(--text-secondary); transition: all .18s; font-family: 'Inter', sans-serif; }
+.btn-add-hora:hover { border-color: var(--primary); color: var(--primary); }
+
+.receita-form { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); margin-bottom: 16px; }
+
+/* Estoque */
+.estoque-calc { background: var(--primary-light); border: 1px solid #bfdbfe; border-radius: var(--radius-md); padding: 12px 16px; margin-top: 8px; }
+.estoque-calc .ec-label { font-size: 11.5px; font-weight: 600; color: var(--primary); margin-bottom: 4px; }
+.estoque-calc .ec-result { font-size: 13px; color: var(--text-primary); }
+
+/* Upload receita */
+.upload-area { border: 2px dashed var(--border); border-radius: var(--radius-md); padding: 16px; text-align: center; cursor: pointer; transition: all .18s; background: var(--bg); }
+.upload-area:hover { border-color: var(--primary); background: var(--primary-light); }
+.upload-area input { display: none; }
+.upload-area .ua-icon { font-size: 28px; margin-bottom: 8px; }
+.upload-area .ua-text { font-size: 13px; color: var(--text-secondary); }
+</style>
+</head>
+<body>
+
+<div class="sidebar"></div>
+
+<div class="content">
+
+  <div class="header-page">
+    <div>
+      <h1>Enfermagem</h1>
+      <p class="page-subtitle">Medicamentos, receitas e controle de estoque</p>
+    </div>
+  </div>
+
+  <div class="enf-layout">
+
+    <!-- Sidebar -->
+    <div class="pac-list-sidebar">
+      <div class="pac-list-header">💊 Selecione o Paciente</div>
+      <div class="pac-list-search">
+        <input type="text" id="searchPac" placeholder="Buscar..." oninput="filtrarPacs()">
+      </div>
+      <div class="pac-list-items" id="pacList"></div>
+    </div>
+
+    <!-- Área principal -->
+    <div>
+
+      <div id="estadoVazio" class="med-card">
+        <div style="padding:40px;text-align:center;color:#94a3b8;">
+          <div style="font-size:36px;margin-bottom:12px;">💊</div>
+          <strong>Selecione um paciente</strong>
+          <p style="margin-top:4px;font-size:13px;">Escolha ao lado para ver e gerenciar medicamentos.</p>
+        </div>
+      </div>
+
+      <div id="areaEnfermagem" style="display:none;">
+
+        <div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">
+          <h2 style="font-size:17px;font-weight:700;" id="nomeSelPac">—</h2>
+          <button class="btn-secondary" onclick="toggleFormReceita()">📋 + Receita Médica</button>
+        </div>
+
+        <!-- Form receita -->
+        <div id="formReceita" style="display:none;" class="receita-form">
+          <div class="card-header"><span class="card-title">📋 Nova Receita Médica</span></div>
+          <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Médico Prescritor</label>
+                <input type="text" id="medicoRec" placeholder="Nome do médico">
+              </div>
+              <div class="form-group">
+                <label>Data da Prescrição</label>
+                <input type="date" id="dataRec">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Observações</label>
+              <textarea id="obsRec" rows="2" placeholder="Observações gerais da receita..."></textarea>
+            </div>
+            <!-- Upload da receita -->
+            <div class="form-group">
+              <label>📎 Imagem/PDF da Receita</label>
+              <div class="upload-area" onclick="document.getElementById('fileReceita').click()">
+                <input type="file" id="fileReceita" accept="image/*,application/pdf" onchange="previewReceita(this)">
+                <div class="ua-icon">📄</div>
+                <div class="ua-text" id="receitaArqLabel">Clique para anexar a receita (imagem ou PDF)</div>
+              </div>
+            </div>
+            <div>
+              <button class="btn-primary" onclick="salvarReceita()">💾 Salvar Receita</button>
+              <button class="btn-secondary" style="margin-left:8px;" onclick="toggleFormReceita()">Cancelar</button>
+              <span id="fbReceita" style="font-size:13px;color:#64748b;margin-left:8px;"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista medicamentos ativos -->
+        <div class="med-card">
+          <div class="med-card-header">
+            <span style="font-weight:600;font-size:14px;">💊 Medicamentos Ativos</span>
+            <button class="btn-primary" onclick="toggleFormMed()" style="padding:6px 12px;font-size:12px;">+ Adicionar Medicamento</button>
+          </div>
+          <div id="listaMeds"></div>
+        </div>
+
+        <!-- Formulário de medicamento -->
+        <div id="formMed" style="display:none;" class="med-form">
+          <div class="card-header"><span class="card-title">+ Novo Medicamento</span></div>
+          <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Nome do Medicamento *</label>
+                <input type="text" id="nomeMed" placeholder="Ex: Seroquel">
+              </div>
+              <div class="form-group">
+                <label>Dosagem</label>
+                <input type="text" id="dosagemMed" placeholder="Ex: 25mg">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Posologia</label>
+              <input type="text" id="posologiaMed" placeholder="Ex: Tomar 1 comprimido com água">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Via de Administração</label>
+                <select id="viaMed">
+                  <option value="oral">Oral</option>
+                  <option value="sublingual">Sublingual</option>
+                  <option value="intramuscular">Intramuscular</option>
+                  <option value="intravenosa">Intravenosa</option>
+                  <option value="topica">Tópica</option>
+                  <option value="inalatoria">Inalatória</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Receita Médica</label>
+                <select id="receitaMed">
+                  <option value="">Sem receita vinculada</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- ESTOQUE -->
+            <div style="background:var(--bg);border-radius:var(--radius-md);padding:16px;border:1px solid var(--border);">
+              <div style="font-weight:600;font-size:13px;margin-bottom:12px;">📦 Controle de Estoque</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Comprimidos disponíveis (entrada)</label>
+                  <input type="number" id="qtdEstoque" min="0" placeholder="Ex: 30" oninput="calcularEstoque()">
+                </div>
+                <div class="form-group">
+                  <label>Comprimidos por dose</label>
+                  <input type="number" id="cpPorDose" min="1" value="1" oninput="calcularEstoque()">
+                </div>
+              </div>
+              <div id="estoqueCalcResult"></div>
+            </div>
+
+            <div class="form-group">
+              <label>Horários de administração</label>
+              <div class="horarios-grid" id="horariosGrid">
+                <div class="horario-item">
+                  <input type="time" class="horario-input" value="08:00">
+                  <button onclick="removerHorario(this)">✕</button>
+                </div>
+              </div>
+              <button class="btn-add-hora" style="margin-top:8px;" onclick="addHorario()">+ Horário</button>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Data Início</label>
+                <input type="date" id="dataInicioMed">
+              </div>
+              <div class="form-group">
+                <label>Data Fim (se houver)</label>
+                <input type="date" id="dataFimMed">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Observações</label>
+              <textarea id="obsMed" rows="2" placeholder="Observações específicas..."></textarea>
+            </div>
+            <div>
+              <button class="btn-primary" onclick="salvarMedicamento()">💾 Salvar Medicamento</button>
+              <button class="btn-secondary" style="margin-left:8px;" onclick="toggleFormMed()">Cancelar</button>
+              <span id="fbMed" style="font-size:13px;color:#64748b;margin-left:8px;"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Receitas arquivadas -->
+        <div class="med-card" style="margin-top:16px;">
+          <div class="med-card-header">
+            <span style="font-weight:600;font-size:14px;">📋 Receitas Médicas Arquivadas</span>
+          </div>
+          <div id="listaReceitas"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script src="sidebar.js"></script>
+<script>
+let instituicaoId  = null;
+let pacienteSel    = null;
+let pacientesCache = [];
+let receitasCache  = [];
+
+async function iniciar() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = "index.html"; return; }
+  const { data: usuario } = await supabase
+    .from("usuarios").select("instituicao_id").eq("id", session.user.id).single();
+  if (!usuario) return;
+  instituicaoId = usuario.instituicao_id;
+  document.getElementById("dataRec").value = new Date().toISOString().split("T")[0];
+  document.getElementById("dataInicioMed").value = new Date().toISOString().split("T")[0];
+  await carregarPacientes();
+}
+
+async function carregarPacientes() {
+  const { data } = await supabase.from("pacientes").select("id, nome")
+    .eq("instituicao_id", instituicaoId).is("data_desligamento", null).order("nome");
+  pacientesCache = data || [];
+  renderPacList(pacientesCache);
+}
+
+function renderPacList(lista) {
+  document.getElementById("pacList").innerHTML = lista.map(p => {
+    const ini = p.nome.split(" ").slice(0,2).map(n=>n[0]).join("").toUpperCase();
+    const sel = pacienteSel?.id === p.id ? "selected" : "";
+    return `<div class="pac-list-item ${sel}" onclick="selecionarPaciente('${p.id}')">
+      <div class="pac-ini">${ini}</div>
+      <div class="pac-nome-list">${p.nome}</div>
+    </div>`;
+  }).join("") || `<div style="padding:20px;color:#94a3b8;font-size:13px;text-align:center;">Nenhum paciente ativo.</div>`;
+}
+
+function filtrarPacs() {
+  const q = document.getElementById("searchPac").value.toLowerCase();
+  renderPacList(pacientesCache.filter(p => p.nome.toLowerCase().includes(q)));
+}
+
+async function selecionarPaciente(id) {
+  pacienteSel = pacientesCache.find(p => p.id === id);
+  document.getElementById("estadoVazio").style.display    = "none";
+  document.getElementById("areaEnfermagem").style.display = "";
+  document.getElementById("nomeSelPac").textContent = `👤 ${pacienteSel.nome}`;
+  document.getElementById("formReceita").style.display = "none";
+  document.getElementById("formMed").style.display = "none";
+  renderPacList(pacientesCache);
+  await carregarMedicamentos();
+  await carregarReceitas();
+}
+
+function calcularEstoque() {
+  const qtd = parseInt(document.getElementById("qtdEstoque").value) || 0;
+  const cpDose = parseInt(document.getElementById("cpPorDose").value) || 1;
+  const horarios = document.querySelectorAll(".horario-input").length;
+  const el = document.getElementById("estoqueCalcResult");
+
+  if (!qtd || !horarios) { el.innerHTML = ''; return; }
+
+  const dosesPerDay = horarios;
+  const cpPerDay = dosesPerDay * cpDose;
+  const diasTotal = cpPerDay > 0 ? Math.floor(qtd / cpPerDay) : 0;
+
+  const dataFim = new Date();
+  dataFim.setDate(dataFim.getDate() + diasTotal);
+
+  let cls = 'estoque-ok';
+  if (diasTotal <= 7) cls = 'estoque-crit';
+  else if (diasTotal <= 15) cls = 'estoque-warn';
+
+  el.innerHTML = `<div class="estoque-calc">
+    <div class="ec-label">📊 Cálculo de Estoque</div>
+    <div class="ec-result">
+      <strong>${qtd} cp</strong> ÷ (${dosesPerDay} doses/dia × ${cpDose} cp/dose = ${cpPerDay} cp/dia)
+      = <strong class="${cls === 'estoque-ok' ? '' : ''}">${diasTotal} dias</strong>
+      (até aprox. <strong>${dataFim.toLocaleDateString('pt-BR')}</strong>)
+    </div>
+  </div>`;
+}
+
+async function carregarMedicamentos() {
+  const { data } = await supabase.from("medicamentos").select("*")
+    .eq("paciente_id", pacienteSel.id).eq("ativo", true).order("nome");
+  const lista = data || [];
+
+  if (lista.length === 0) {
+    document.getElementById("listaMeds").innerHTML =
+      `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:13px;">Nenhum medicamento ativo.</div>`;
+    return;
+  }
+
+  document.getElementById("listaMeds").innerHTML = lista.map(m => {
+    const horas = (m.horarios || []).map(h => `<span class="med-chip hora">⏰ ${h}</span>`).join("");
+
+    // Cálculo de estoque
+    let estoqueChip = '';
+    if (m.qtd_estoque && m.cp_por_dose) {
+      const horasCount = (m.horarios || []).length || 1;
+      const cpPerDay = horasCount * (m.cp_por_dose || 1);
+      const diasRestantes = cpPerDay > 0 ? Math.floor((m.qtd_estoque || 0) / cpPerDay) : 0;
+      let cls = 'estoque-ok';
+      if (diasRestantes <= 7) cls = 'estoque-crit';
+      else if (diasRestantes <= 15) cls = 'estoque-warn';
+      estoqueChip = `<span class="med-chip ${cls}">📦 ${m.qtd_estoque}cp · ${diasRestantes}d restantes</span>`;
+    }
+
+    return `<div class="med-item">
+      <div>
+        <div class="med-nome">💊 ${m.nome}</div>
+        <div class="med-dose" style="color:var(--text-secondary);">
+          ${m.dosagem ? `<strong>${m.dosagem}</strong> · ` : ''}${m.posologia || ''}
+        </div>
+        <div class="med-chips">
+          ${m.via_administracao ? `<span class="med-chip via">📋 ${m.via_administracao}</span>` : ''}
+          ${horas}
+          ${estoqueChip}
+          ${m.data_inicio ? `<span class="med-chip">Início: ${formatarData(m.data_inicio)}</span>` : ''}
+          ${m.data_fim ? `<span class="med-chip" style="background:#fef2f2;color:#991b1b;">Fim: ${formatarData(m.data_fim)}</span>` : ''}
+        </div>
+        ${m.observacoes ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">📝 ${m.observacoes}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <button class="btn-small danger" onclick="desativarMed('${m.id}')">Descontinuar</button>
+        <button class="btn-small" onclick="atualizarEstoque('${m.id}', ${m.qtd_estoque || 0})">📦 Estoque</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function atualizarEstoque(id, atual) {
+  const nova = prompt(`Atualizar estoque\nQuantidade atual: ${atual} comprimidos\n\nNova quantidade:`);
+  if (nova === null) return;
+  const qtd = parseInt(nova);
+  if (isNaN(qtd) || qtd < 0) { alert("Quantidade inválida."); return; }
+  await supabase.from("medicamentos").update({ qtd_estoque: qtd }).eq("id", id);
+  await carregarMedicamentos();
+}
+
+async function carregarReceitas() {
+  const { data } = await supabase.from("receitas_medicas").select("*")
+    .eq("paciente_id", pacienteSel.id).order("data_prescricao", { ascending: false });
+  receitasCache = data || [];
+
+  const sel = document.getElementById("receitaMed");
+  sel.innerHTML = `<option value="">Sem receita vinculada</option>` +
+    receitasCache.map(r => `<option value="${r.id}">📋 ${r.medico || 'Médico'} — ${formatarData(r.data_prescricao)}</option>`).join("");
+
+  if (receitasCache.length === 0) {
+    document.getElementById("listaReceitas").innerHTML =
+      `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Nenhuma receita arquivada.</div>`;
+    return;
+  }
+
+  document.getElementById("listaReceitas").innerHTML = receitasCache.map(r => `
+    <div class="med-item">
+      <div>
+        <div class="med-nome" style="font-size:14px;">📋 Dr(a). ${r.medico || 'Médico não informado'}</div>
+        <div class="med-dose">Emitida em: ${formatarData(r.data_prescricao)}</div>
+        ${r.observacoes ? `<div style="font-size:12px;color:#64748b;margin-top:4px;">${r.observacoes}</div>` : ''}
+        ${r.arquivo_url ? `<div style="margin-top:8px;"><a href="${r.arquivo_url}" target="_blank" class="btn-small">📎 Ver Receita</a></div>` : ''}
+      </div>
+      <button class="btn-small danger" onclick="deletarReceita('${r.id}')">Excluir</button>
+    </div>`).join("");
+}
+
+function previewReceita(input) {
+  const label = document.getElementById("receitaArqLabel");
+  if (input.files[0]) {
+    label.textContent = `✅ ${input.files[0].name}`;
+  }
+}
+
+function toggleFormReceita() {
+  const el = document.getElementById("formReceita");
+  el.style.display = el.style.display === "none" ? "" : "none";
+}
+
+function toggleFormMed() {
+  const el = document.getElementById("formMed");
+  el.style.display = el.style.display === "none" ? "" : "none";
+  if (el.style.display !== "none") document.getElementById("nomeMed").focus();
+}
+
+async function salvarReceita() {
+  const medico          = document.getElementById("medicoRec").value.trim();
+  const data_prescricao = document.getElementById("dataRec").value;
+  const observacoes     = document.getElementById("obsRec").value;
+  const fb = document.getElementById("fbReceita");
+  const file = document.getElementById("fileReceita").files[0];
+
+  fb.textContent = "Salvando..."; fb.style.color="#64748b";
+
+  let arquivo_url = null;
+  if (file) {
+    const fileName = `receitas/${pacienteSel.id}_${Date.now()}_${file.name}`;
+    const { error: upErr } = await supabase.storage.from("receitas").upload(fileName, file, { upsert: true });
+    if (!upErr) {
+      const { data: pub } = supabase.storage.from("receitas").getPublicUrl(fileName);
+      arquivo_url = pub.publicUrl;
+    }
+  }
+
+  const { error } = await supabase.from("receitas_medicas").insert([{
+    instituicao_id: instituicaoId,
+    paciente_id:    pacienteSel.id,
+    medico, data_prescricao, observacoes, ativa: true, arquivo_url
+  }]);
+  if (error) { fb.textContent = "Erro: " + error.message; fb.style.color="#ef4444"; return; }
+  fb.textContent = "✅ Salvo!"; fb.style.color="#10b981";
+  document.getElementById("medicoRec").value = "";
+  document.getElementById("obsRec").value    = "";
+  document.getElementById("fileReceita").value = "";
+  document.getElementById("receitaArqLabel").textContent = "Clique para anexar a receita (imagem ou PDF)";
+  setTimeout(() => { fb.textContent=""; toggleFormReceita(); }, 1500);
+  await carregarReceitas();
+}
+
+function addHorario() {
+  const grid = document.getElementById("horariosGrid");
+  const div = document.createElement("div");
+  div.className = "horario-item";
+  div.innerHTML = `<input type="time" class="horario-input" value="12:00" oninput="calcularEstoque()">
+    <button onclick="removerHorario(this)">✕</button>`;
+  grid.appendChild(div);
+  calcularEstoque();
+}
+
+function removerHorario(btn) {
+  btn.closest(".horario-item").remove();
+  calcularEstoque();
+}
+
+async function salvarMedicamento() {
+  const nome = document.getElementById("nomeMed").value.trim();
+  const fb   = document.getElementById("fbMed");
+  if (!nome) { fb.textContent = "Informe o nome."; fb.style.color="#ef4444"; return; }
+
+  const horarios = Array.from(document.querySelectorAll(".horario-input")).map(i => i.value).filter(Boolean);
+  const qtd_estoque = parseInt(document.getElementById("qtdEstoque").value) || null;
+  const cp_por_dose = parseInt(document.getElementById("cpPorDose").value) || 1;
+  fb.textContent = "Salvando..."; fb.style.color="#64748b";
+
+  const dados = {
+    instituicao_id: instituicaoId,
+    paciente_id:    pacienteSel.id,
+    receita_id:     document.getElementById("receitaMed").value || null,
+    nome,
+    dosagem:        document.getElementById("dosagemMed").value,
+    posologia:      document.getElementById("posologiaMed").value,
+    via_administracao: document.getElementById("viaMed").value,
+    horarios, qtd_estoque, cp_por_dose,
+    data_inicio:    document.getElementById("dataInicioMed").value || null,
+    data_fim:       document.getElementById("dataFimMed").value    || null,
+    observacoes:    document.getElementById("obsMed").value,
+    ativo: true
+  };
+
+  const { error } = await supabase.from("medicamentos").insert([dados]);
+  if (error) { fb.textContent = "Erro: " + error.message; fb.style.color="#ef4444"; return; }
+
+  fb.textContent = "✅ Salvo!"; fb.style.color="#10b981";
+  ["nomeMed","dosagemMed","posologiaMed","obsMed","qtdEstoque"].forEach(id => document.getElementById(id).value="");
+  document.getElementById("horariosGrid").innerHTML =
+    `<div class="horario-item"><input type="time" class="horario-input" value="08:00" oninput="calcularEstoque()"><button onclick="removerHorario(this)">✕</button></div>`;
+  document.getElementById("estoqueCalcResult").innerHTML = "";
+  setTimeout(() => { fb.textContent=""; toggleFormMed(); }, 1500);
+  await carregarMedicamentos();
+}
+
+async function desativarMed(id) {
+  if (!confirm("Descontinuar este medicamento?")) return;
+  await supabase.from("medicamentos").update({ ativo: false }).eq("id", id);
+  await carregarMedicamentos();
+}
+
+async function deletarReceita(id) {
+  if (!confirm("Excluir esta receita?")) return;
+  await supabase.from("receitas_medicas").delete().eq("id", id);
+  await carregarReceitas();
+}
+
+function formatarData(iso) {
+  if (!iso) return "—";
+  const [a,m,d] = iso.split("-");
+  return `${d}/${m}/${a}`;
+}
+
+iniciar();
+</script>
+</body>
+</html>

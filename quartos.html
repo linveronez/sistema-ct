@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Quartos e Leitos — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+<style>
+.quartos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+
+.quarto-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; transition: all .18s; }
+.quarto-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.quarto-card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--bg); display: flex; align-items: center; justify-content: space-between; }
+.quarto-nome { font-weight: 700; font-size: 15px; }
+.quarto-ala { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.quarto-ocupacao { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 99px; }
+.quarto-body { padding: 14px 18px; }
+.quarto-footer { padding: 10px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+
+/* Leitos grid */
+.leitos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.leito-card { border: 2px solid var(--border); border-radius: var(--radius-md); padding: 12px 10px; text-align: center; cursor: pointer; transition: all .15s; position: relative; }
+.leito-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.leito-card.ocupado { border-color: #ef4444; background: #fef2f2; }
+.leito-card.livre { border-color: #10b981; background: #ecfdf5; }
+.leito-card.manutencao { border-color: #f59e0b; background: #fffbeb; }
+.leito-card.reservado { border-color: #8b5cf6; background: #f5f3ff; }
+.leito-icon { font-size: 24px; margin-bottom: 6px; }
+.leito-nome { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+.leito-pac { font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.leito-status-badge { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 99px; margin-top: 4px; display: inline-block; }
+.badge-ocupado   { background: #fef2f2; color: #991b1b; }
+.badge-livre     { background: #ecfdf5; color: #065f46; }
+.badge-manutencao { background: #fffbeb; color: #92400e; }
+.badge-reservado { background: #f5f3ff; color: #5b21b6; }
+
+/* Resumo ocupação */
+.ocp-bar { height: 8px; border-radius: 99px; background: var(--border); overflow: hidden; margin-top: 8px; }
+.ocp-bar-fill { height: 100%; border-radius: 99px; background: var(--primary); transition: width .4s; }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(2px); }
+.modal-box { background: white; border-radius: var(--radius-xl); width: 100%; max-width: 500px; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; }
+.modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-secondary); }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; }
+
+.stat-ocp { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.stat-ocp-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; text-align: center; box-shadow: var(--shadow-sm); }
+.stat-ocp-card .val { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 26px; font-weight: 800; }
+.stat-ocp-card .lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-secondary); margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="sidebar"></div>
+<div class="content">
+
+  <div class="header-page">
+    <div>
+      <h1>🛏️ Quartos e Leitos</h1>
+      <p class="page-subtitle" id="subtitlePage">Controle de ocupação e disponibilidade</p>
+    </div>
+    <button class="btn-primary" onclick="abrirModalQuarto()">+ Novo Quarto</button>
+  </div>
+
+  <!-- Stats globais -->
+  <div class="stat-ocp" id="statsOcupacao">
+    <div class="stat-ocp-card"><div class="val" id="stTotal">—</div><div class="lbl">Total Leitos</div></div>
+    <div class="stat-ocp-card"><div class="val" id="stOcupado" style="color:#ef4444;">—</div><div class="lbl">Ocupados</div></div>
+    <div class="stat-ocp-card"><div class="val" id="stLivre" style="color:#10b981;">—</div><div class="lbl">Disponíveis</div></div>
+    <div class="stat-ocp-card"><div class="val" id="stOutros" style="color:#f59e0b;">—</div><div class="lbl">Manutenção/Res.</div></div>
+  </div>
+
+  <div class="quartos-grid" id="quartosGrid">
+    <div style="grid-column:1/-1;text-align:center;padding:32px;color:#94a3b8;">Carregando...</div>
+  </div>
+
+</div>
+
+<!-- Modal Quarto -->
+<div class="modal-overlay" id="modalQuarto" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="modalQuartoTitulo">Novo Quarto</h2>
+      <button class="modal-close" onclick="fecharModalQuarto()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nome do Quarto *</label>
+          <input type="text" id="qNome" placeholder="Ex: Quarto 01, Suíte A">
+        </div>
+        <div class="form-group">
+          <label>Ala / Setor</label>
+          <input type="text" id="qAla" placeholder="Ex: Ala Masculina">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Observações</label>
+        <textarea id="qDesc" rows="2" placeholder="Detalhes do quarto..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="salvarQuarto()">💾 Salvar</button>
+      <button class="btn-secondary" onclick="fecharModalQuarto()">Cancelar</button>
+      <span id="fbQuarto" style="font-size:13px;color:#64748b;margin-left:8px;"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Leito -->
+<div class="modal-overlay" id="modalLeito" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="modalLeitoTitulo">Novo Leito</h2>
+      <button class="modal-close" onclick="fecharModalLeito()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nome do Leito *</label>
+          <input type="text" id="lNome" placeholder="Ex: Leito A, Cama 1">
+        </div>
+        <div class="form-group">
+          <label>Status *</label>
+          <select id="lStatus" onchange="togglePaciente()">
+            <option value="livre">✅ Livre</option>
+            <option value="ocupado">🔴 Ocupado</option>
+            <option value="manutencao">🔧 Manutenção</option>
+            <option value="reservado">🟣 Reservado</option>
+          </select>
+        </div>
+      </div>
+      <div id="secaoPaciente" style="display:none;">
+        <div class="form-group">
+          <label>Paciente *</label>
+          <select id="lPaciente">
+            <option value="">Selecione o paciente...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Data de ocupação</label>
+          <input type="date" id="lDataOcupacao">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Observações</label>
+        <input type="text" id="lObs" placeholder="Ex: Janela com grade, ar-condicionado...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="salvarLeito()">💾 Salvar</button>
+      <button class="btn-secondary" onclick="fecharModalLeito()">Cancelar</button>
+      <button class="btn-small danger" id="btnExcluirLeito" style="display:none;" onclick="excluirLeito()">Excluir Leito</button>
+      <span id="fbLeito" style="font-size:13px;color:#64748b;margin-left:8px;"></span>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script src="sidebar.js"></script>
+<script>
+let instituicaoId = null;
+let quartosCache = [];
+let leitosCache = [];
+let pacientesCache = [];
+let quartoEditId = null;
+let leitoEditId = null;
+let quartoAtualId = null;
+
+async function iniciar() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+  const { data: u } = await supabase.from('usuarios').select('instituicao_id').eq('id', session.user.id).single();
+  if (!u) return;
+  instituicaoId = u.instituicao_id;
+
+  const { data: pacs } = await supabase.from('pacientes').select('id, nome')
+    .eq('instituicao_id', instituicaoId).is('data_desligamento', null).order('nome');
+  pacientesCache = pacs || [];
+
+  await carregarTudo();
+}
+
+async function carregarTudo() {
+  const [{ data: quartos }, { data: leitos }] = await Promise.all([
+    supabase.from('quartos').select('*').eq('instituicao_id', instituicaoId).order('ala').order('nome'),
+    supabase.from('leitos').select('*').eq('instituicao_id', instituicaoId).order('nome')
+  ]);
+  quartosCache = quartos || [];
+  leitosCache  = leitos  || [];
+  renderStats();
+  renderQuartos();
+}
+
+function renderStats() {
+  const total     = leitosCache.length;
+  const ocupados  = leitosCache.filter(l => l.status === 'ocupado').length;
+  const livres    = leitosCache.filter(l => l.status === 'livre').length;
+  const outros    = leitosCache.filter(l => l.status === 'manutencao' || l.status === 'reservado').length;
+  document.getElementById('stTotal').textContent   = total;
+  document.getElementById('stOcupado').textContent = ocupados;
+  document.getElementById('stLivre').textContent   = livres;
+  document.getElementById('stOutros').textContent  = outros;
+  const pct = total > 0 ? Math.round((ocupados/total)*100) : 0;
+  document.getElementById('subtitlePage').textContent = `${pct}% de ocupação · ${ocupados} de ${total} leitos`;
+}
+
+function renderQuartos() {
+  const grid = document.getElementById('quartosGrid');
+  if (!quartosCache.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;color:#94a3b8;">
+      <div style="font-size:36px;margin-bottom:12px;">🛏️</div>
+      <strong>Nenhum quarto cadastrado</strong>
+      <p style="margin-top:4px;font-size:13px;">Clique em "+ Novo Quarto" para começar.</p>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = quartosCache.map(q => {
+    const leitos = leitosCache.filter(l => l.quarto_id === q.id);
+    const ocupados = leitos.filter(l => l.status === 'ocupado').length;
+    const total    = leitos.length;
+    const pct      = total > 0 ? Math.round((ocupados/total)*100) : 0;
+    const corOcp   = pct >= 80 ? '#ef4444' : pct >= 50 ? '#f59e0b' : '#10b981';
+
+    return `<div class="quarto-card">
+      <div class="quarto-card-header">
+        <div>
+          <div class="quarto-nome">🏠 ${q.nome}</div>
+          ${q.ala ? `<div class="quarto-ala">${q.ala}</div>` : ''}
+        </div>
+        <div>
+          <span class="quarto-ocupacao" style="background:${pct>=80?'#fef2f2':pct>=50?'#fffbeb':'#ecfdf5'};color:${corOcp};">
+            ${ocupados}/${total} ocupados
+          </span>
+        </div>
+      </div>
+      <div class="quarto-body">
+        <div class="ocp-bar">
+          <div class="ocp-bar-fill" style="width:${pct}%;background:${corOcp};"></div>
+        </div>
+        <div class="leitos-grid" style="margin-top:14px;">
+          ${leitos.map(l => `
+            <div class="leito-card ${l.status}" onclick="abrirModalLeito('${q.id}', '${l.id}')">
+              <div class="leito-icon">${l.status==='ocupado'?'🛏️':l.status==='livre'?'✅':l.status==='manutencao'?'🔧':'🟣'}</div>
+              <div class="leito-nome">${l.nome}</div>
+              <div class="leito-pac">${l.paciente_nome || '—'}</div>
+              <span class="leito-status-badge badge-${l.status}">${{ocupado:'Ocupado',livre:'Livre',manutencao:'Manutenção',reservado:'Reservado'}[l.status]}</span>
+            </div>`).join('')}
+          <div class="leito-card" style="border-style:dashed;cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:90px;" onclick="abrirModalLeito('${q.id}', null)">
+            <div style="text-align:center;color:var(--text-muted);font-size:12px;">
+              <div style="font-size:22px;">＋</div>
+              Leito
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="quarto-footer">
+        <button class="btn-small primary" onclick="editarQuarto('${q.id}')">✏️ Editar</button>
+        <button class="btn-small danger" onclick="excluirQuarto('${q.id}')">Excluir</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── MODAL QUARTO ──────────────────────────────────────
+function abrirModalQuarto() {
+  quartoEditId = null;
+  document.getElementById('modalQuartoTitulo').textContent = 'Novo Quarto';
+  document.getElementById('qNome').value = '';
+  document.getElementById('qAla').value = '';
+  document.getElementById('qDesc').value = '';
+  document.getElementById('fbQuarto').textContent = '';
+  document.getElementById('modalQuarto').style.display = 'flex';
+}
+
+function editarQuarto(id) {
+  quartoEditId = id;
+  const q = quartosCache.find(q => q.id === id);
+  document.getElementById('modalQuartoTitulo').textContent = 'Editar Quarto';
+  document.getElementById('qNome').value = q.nome || '';
+  document.getElementById('qAla').value  = q.ala  || '';
+  document.getElementById('qDesc').value = q.descricao || '';
+  document.getElementById('fbQuarto').textContent = '';
+  document.getElementById('modalQuarto').style.display = 'flex';
+}
+
+function fecharModalQuarto() { document.getElementById('modalQuarto').style.display = 'none'; }
+
+async function salvarQuarto() {
+  const nome = document.getElementById('qNome').value.trim();
+  const fb   = document.getElementById('fbQuarto');
+  if (!nome) { fb.textContent = 'Informe o nome.'; fb.style.color = '#ef4444'; return; }
+  fb.textContent = 'Salvando...'; fb.style.color = '#64748b';
+
+  const dados = {
+    instituicao_id: instituicaoId,
+    nome,
+    ala:       document.getElementById('qAla').value || null,
+    descricao: document.getElementById('qDesc').value || null,
+  };
+
+  let error;
+  if (quartoEditId) {
+    ({ error } = await supabase.from('quartos').update(dados).eq('id', quartoEditId));
+  } else {
+    ({ error } = await supabase.from('quartos').insert([dados]));
+  }
+  if (error) { fb.textContent = 'Erro: ' + error.message; fb.style.color = '#ef4444'; return; }
+  fecharModalQuarto();
+  await carregarTudo();
+}
+
+async function excluirQuarto(id) {
+  const leitos = leitosCache.filter(l => l.quarto_id === id);
+  if (leitos.length > 0) {
+    alert(`Este quarto tem ${leitos.length} leito(s). Remova os leitos antes de excluir o quarto.`);
+    return;
+  }
+  if (!confirm('Excluir este quarto?')) return;
+  await supabase.from('quartos').delete().eq('id', id);
+  await carregarTudo();
+}
+
+// ── MODAL LEITO ──────────────────────────────────────
+function abrirModalLeito(quartoId, leitoId) {
+  quartoAtualId = quartoId;
+  leitoEditId   = leitoId;
+
+  const sel = document.getElementById('lPaciente');
+  sel.innerHTML = `<option value="">Selecione o paciente...</option>` +
+    pacientesCache.map(p => `<option value="${p.id}" data-nome="${p.nome}">${p.nome}</option>`).join('');
+
+  document.getElementById('lDataOcupacao').value = new Date().toISOString().split('T')[0];
+  document.getElementById('fbLeito').textContent = '';
+
+  if (leitoId) {
+    const l = leitosCache.find(l => l.id === leitoId);
+    document.getElementById('modalLeitoTitulo').textContent = 'Editar Leito';
+    document.getElementById('lNome').value   = l.nome || '';
+    document.getElementById('lStatus').value = l.status || 'livre';
+    document.getElementById('lObs').value    = l.observacoes || '';
+    if (l.paciente_id) {
+      sel.value = l.paciente_id;
+      document.getElementById('lDataOcupacao').value = l.data_ocupacao || '';
+    }
+    document.getElementById('btnExcluirLeito').style.display = '';
+  } else {
+    document.getElementById('modalLeitoTitulo').textContent = 'Novo Leito';
+    document.getElementById('lNome').value   = '';
+    document.getElementById('lStatus').value = 'livre';
+    document.getElementById('lObs').value    = '';
+    sel.value = '';
+    document.getElementById('btnExcluirLeito').style.display = 'none';
+  }
+
+  togglePaciente();
+  document.getElementById('modalLeito').style.display = 'flex';
+}
+
+function fecharModalLeito() { document.getElementById('modalLeito').style.display = 'none'; }
+
+function togglePaciente() {
+  const status = document.getElementById('lStatus').value;
+  document.getElementById('secaoPaciente').style.display = status === 'ocupado' ? '' : 'none';
+}
+
+async function salvarLeito() {
+  const nome   = document.getElementById('lNome').value.trim();
+  const status = document.getElementById('lStatus').value;
+  const fb     = document.getElementById('fbLeito');
+  if (!nome) { fb.textContent = 'Informe o nome.'; fb.style.color = '#ef4444'; return; }
+
+  let paciente_id = null, paciente_nome = null, data_ocupacao = null;
+  if (status === 'ocupado') {
+    const sel = document.getElementById('lPaciente');
+    paciente_id   = sel.value || null;
+    paciente_nome = sel.options[sel.selectedIndex]?.dataset?.nome || null;
+    data_ocupacao = document.getElementById('lDataOcupacao').value || null;
+  }
+
+  fb.textContent = 'Salvando...'; fb.style.color = '#64748b';
+
+  const dados = {
+    instituicao_id: instituicaoId,
+    quarto_id:      quartoAtualId,
+    nome, status,
+    paciente_id:   paciente_id,
+    paciente_nome: paciente_nome,
+    data_ocupacao: data_ocupacao,
+    observacoes:   document.getElementById('lObs').value || null,
+  };
+
+  let error;
+  if (leitoEditId) {
+    ({ error } = await supabase.from('leitos').update(dados).eq('id', leitoEditId));
+  } else {
+    ({ error } = await supabase.from('leitos').insert([dados]));
+  }
+  if (error) { fb.textContent = 'Erro: ' + error.message; fb.style.color = '#ef4444'; return; }
+  fecharModalLeito();
+  await carregarTudo();
+}
+
+async function excluirLeito() {
+  if (!confirm('Excluir este leito?')) return;
+  await supabase.from('leitos').delete().eq('id', leitoEditId);
+  fecharModalLeito();
+  await carregarTudo();
+}
+
+iniciar();
+</script>
+</body>
+</html>

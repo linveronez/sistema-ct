@@ -1,93 +1,373 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Pacientes</title>
-</head>
+<title>Pacientes — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+<style>
+.grid-pacientes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.card-pac {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  transition: all .18s;
+}
+.card-pac::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px; height: 100%;
+  background: var(--primary);
+  border-radius: 4px 0 0 4px;
+}
+.card-pac.encerrado::before { background: var(--text-muted); }
+.card-pac:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
 
+.pac-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 14px 10px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.pac-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--primary-light); color: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; flex-shrink: 0;
+}
+.pac-nome {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 14px; font-weight: 700; color: var(--text-primary);
+  line-height: 1.3; flex: 1;
+}
+.pac-body { padding: 10px 14px 10px 18px; display: flex; flex-direction: column; gap: 5px; }
+.pac-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: var(--text-secondary);
+}
+.pac-row strong { color: var(--text-primary); font-weight: 500; }
+.pac-row .icon { width: 14px; text-align: center; font-size: 13px; }
+.pac-footer {
+  padding: 10px 14px 12px 18px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+}
+
+/* Badge mensalidade */
+.badge-mens-ok   { background:#ecfdf5; color:#065f46; }
+.badge-mens-pend { background:#fffbeb; color:#92400e; }
+.badge-mens-atras { background:#fef2f2; color:#991b1b; }
+
+/* WhatsApp btn */
+.btn-wpp {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #25D366; color: white; border: none;
+  border-radius: var(--radius-sm); padding: 6px 10px;
+  font-size: 14px; cursor: pointer; transition: all .14s; text-decoration: none;
+}
+.btn-wpp:hover { background: #128C7E; transform: scale(1.05); }
+
+/* Obs rápida */
+.obs-rapida {
+  background: #fffbeb; border-top: 1px solid #fde68a;
+  padding: 7px 14px 8px 18px; font-size: 12px; color: #92400e;
+  display: flex; align-items: flex-start; gap: 6px; cursor: pointer;
+  transition: background .12s;
+}
+.obs-rapida:hover { background: #fef3c7; }
+.obs-rapida-texto { flex: 1; line-height: 1.5; }
+.obs-rapida-vazia { color: var(--text-muted); font-style: italic; }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(2px); }
+.modal-box { background: white; border-radius: var(--radius-xl); width: 100%; max-width: 440px; box-shadow: var(--shadow-lg); }
+.modal-header { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-size: 15px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-secondary); }
+.modal-body { padding: 20px 22px; }
+.modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+</style>
+</head>
 <body>
 
-<h2>Sistema CT v1.1</h2>
+<div class="sidebar"></div>
 
-<div>
-<button onclick="window.location='pacientes.html'">Pacientes</button>
-<button onclick="window.location='responsaveis.html'">Responsáveis</button>
-<button onclick="window.location='chamada.html'">Chamada</button>
-<button onclick="logout()">Sair</button>
+<div class="content">
+
+  <div class="header-page">
+    <div>
+      <h1>Pacientes</h1>
+      <p class="page-subtitle" id="countLabel">Carregando...</p>
+    </div>
+    <button class="btn-primary" onclick="window.location.href='editarpaciente.html'">+ Novo Paciente</button>
+  </div>
+
+  <div class="filtros">
+    <input type="text" id="filtroNome" placeholder="🔍  Buscar por nome..." oninput="aplicarFiltro()">
+    <select id="filtroStatus" onchange="aplicarFiltro()">
+      <option value="">Todos</option>
+      <option value="ativo">✅ Ativos</option>
+      <option value="encerrado">❌ Encerrados</option>
+    </select>
+    <select id="filtroTerapeuta" onchange="aplicarFiltro()">
+      <option value="">Todos Terapeutas</option>
+      <option value="Lincoln">Lincoln</option>
+      <option value="Peterson">Peterson</option>
+      <option value="Guerra">Guerra</option>
+    </select>
+    <select id="filtroPsicologo" onchange="aplicarFiltro()">
+      <option value="">Todos Psicólogos</option>
+      <option value="Daniela">Daniela</option>
+      <option value="Luciano">Luciano</option>
+    </select>
+  </div>
+
+  <div id="listaPacientes" class="grid-pacientes"></div>
+
 </div>
 
-<h3>Pacientes</h3>
-
-<button onclick="novoPaciente()">Adicionar Paciente</button>
-
-<table border="1" id="tabelaPacientes">
-<tr>
-<th>Nome</th>
-<th>CPF</th>
-<th>Ações</th>
-</tr>
-</table>
+<!-- Modal observação rápida -->
+<div class="modal-overlay" id="modalObs" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>💬 Observação Rápida</h2>
+      <button class="modal-close" onclick="fecharObs()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">Recado visível apenas para a equipe. Não fica no prontuário.</p>
+      <div class="form-group">
+        <label id="obsModalLabel">Paciente</label>
+        <textarea id="obsTexto" rows="4" placeholder="Ex: Família vai visitar amanhã. Evitar atividades externas esta semana." style="width:100%;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="salvarObs()">💾 Salvar</button>
+      <button class="btn-secondary" onclick="fecharObs()">Cancelar</button>
+      <span id="fbObs" style="font-size:13px;color:#64748b;margin-left:8px;"></span>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase.js"></script>
-
+<script src="sidebar.js"></script>
 <script>
+let instituicaoId = null;
+let pacientesCache = [];
+let pagamentosCache = {};
+let obsEditandoId = null;
 
-// 🔐 Verifica login
-async function verificarSessao(){
-    const { data } = await supabase.auth.getSession()
+async function iniciar() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = "index.html"; return; }
 
-    if(!data.session){
-        window.location.href = "index.html"
+  const { data: usuario } = await supabase
+    .from("usuarios").select("instituicao_id").eq("id", session.user.id).single();
+  if (!usuario) return;
+  instituicaoId = usuario.instituicao_id;
+
+  await carregarPacientes();
+}
+
+async function carregarPacientes() {
+  document.getElementById("listaPacientes").innerHTML =
+    `<div style="grid-column:1/-1;text-align:center;padding:32px;color:#94a3b8;font-size:13px;">Carregando...</div>`;
+
+  const mesRef = new Date().toISOString().slice(0, 7) + "-01";
+
+  const [{ data: pacs }, { data: pags }] = await Promise.all([
+    supabase.from("pacientes").select("*").eq("instituicao_id", instituicaoId).order("nome"),
+    supabase.from("pagamentos").select("paciente_id, status")
+      .eq("instituicao_id", instituicaoId).eq("mes_referencia", mesRef)
+  ]);
+
+  pacientesCache = pacs || [];
+  pagamentosCache = {};
+  (pags || []).forEach(p => { pagamentosCache[p.paciente_id] = p.status; });
+
+  renderizarPacientes(pacientesCache);
+}
+
+function renderizarPacientes(lista) {
+  const container = document.getElementById("listaPacientes");
+  const ativos = lista.filter(p => !p.data_desligamento).length;
+  document.getElementById("countLabel").textContent =
+    `${lista.length} paciente${lista.length !== 1 ? 's' : ''} · ${ativos} ativo${ativos !== 1 ? 's' : ''}`;
+
+  if (lista.length === 0) {
+    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
+      <div class="empty-state-icon">👤</div><h3>Nenhum paciente encontrado</h3>
+      <p>Ajuste os filtros ou adicione um novo paciente.</p></div>`;
+    return;
+  }
+
+  container.innerHTML = lista.map(p => {
+    const ativo = !p.data_desligamento;
+    const iniciais = p.nome.split(" ").slice(0,2).map(n => n[0]).join("").toUpperCase();
+    const statusBadge = ativo
+      ? `<span class="badge badge-success">● Ativo</span>`
+      : `<span class="badge badge-danger">● Encerrado</span>`;
+
+    const statusMens = pagamentosCache[p.id];
+    let mensBadge = '';
+    if (ativo) {
+      if (statusMens === 'pago')
+        mensBadge = `<span class="badge badge-mens-ok">💳 Pago</span>`;
+      else if (statusMens === 'atrasado')
+        mensBadge = `<span class="badge badge-mens-atras">💳 Atrasado</span>`;
+      else
+        mensBadge = `<span class="badge badge-mens-pend">💳 Pendente</span>`;
     }
+
+    const venc    = p.data_fim_contrato ? `Até ${formatarData(p.data_fim_contrato)}` : '—';
+    const entrada = p.data_inicio_contrato ? formatarData(p.data_inicio_contrato) : '—';
+
+    // WhatsApp — pega telefone do responsável
+    const tel = (p.responsavel_telefone || '').replace(/\D/g, '');
+    const wppBtn = tel
+      ? `<a class="btn-wpp" href="https://wa.me/55${tel}" target="_blank" title="WhatsApp do responsável">🟢</a>`
+      : '';
+
+    // Obs rápida
+    const obsHtml = `<div class="obs-rapida" onclick="abrirObs('${p.id}', '${p.nome.replace(/'/g,"\\'")}')">
+      💬 <span class="obs-rapida-texto ${p.obs_rapida ? '' : 'obs-rapida-vazia'}">${p.obs_rapida || 'Clique para adicionar observação rápida...'}</span>
+    </div>`;
+
+    return `<div class="card-pac ${ativo ? '' : 'encerrado'}">
+      <div class="pac-header">
+        <div class="pac-avatar">${iniciais}</div>
+        <div>
+          <div class="pac-nome">${p.nome}</div>
+          <div style="margin-top:3px;">${statusBadge}</div>
+        </div>
+      </div>
+      <div class="pac-body">
+        <div class="pac-row"><span class="icon">👤</span> Resp.: <strong>${p.responsavel_nome || "—"}</strong></div>
+        <div class="pac-row"><span class="icon">📅</span> Entrada: <strong>${entrada}</strong></div>
+        <div class="pac-row"><span class="icon">🏁</span> Previsão saída: <strong>${venc}</strong></div>
+        ${p.terapeuta ? `<div class="pac-row"><span class="icon">🧑‍⚕️</span> Terapeuta: <strong>${p.terapeuta}</strong></div>` : ''}
+        ${p.psicologo ? `<div class="pac-row"><span class="icon">🧠</span> Psicólogo: <strong>${p.psicologo}</strong></div>` : ''}
+        ${ativo ? `<div style="margin-top:4px;">${mensBadge}</div>` : ''}
+      </div>
+      ${obsHtml}
+      <div class="pac-footer">
+        <button class="btn-small primary" onclick="window.location.href='editarpaciente.html?id=${p.id}'">✏️ Editar</button>
+        ${ativo ? `<button class="btn-small" onclick="registrarPagamento('${p.id}', '${p.nome.replace(/'/g,"\\'")}')">💳 Mensalidade</button>` : ''}
+        ${wppBtn}
+        <a class="btn-small" href="agenda.html" title="Agendar sessão">📅</a>
+      </div>
+    </div>`;
+  }).join("");
 }
 
-verificarSessao()
+function aplicarFiltro() {
+  const nome      = document.getElementById("filtroNome").value.toLowerCase();
+  const status    = document.getElementById("filtroStatus").value;
+  const terapeuta = document.getElementById("filtroTerapeuta").value;
+  const psicologo = document.getElementById("filtroPsicologo").value;
 
-// 🚪 Logout
-async function logout(){
-    await supabase.auth.signOut()
-    window.location.href = "index.html"
+  let f = pacientesCache.filter(p => p.nome.toLowerCase().includes(nome));
+  if (status === "ativo")     f = f.filter(p => !p.data_desligamento);
+  if (status === "encerrado") f = f.filter(p => p.data_desligamento);
+  if (terapeuta) f = f.filter(p => p.terapeuta === terapeuta);
+  if (psicologo) f = f.filter(p => p.psicologo === psicologo);
+  renderizarPacientes(f);
 }
 
-// 📋 Carregar pacientes
-async function carregarPacientes(){
+async function registrarPagamento(pacienteId, nomePaciente) {
+  const mesRef = new Date().toISOString().slice(0, 7) + "-01";
+  const statusAtual = pagamentosCache[pacienteId];
 
-    const { data, error } = await supabase
-        .from("pacientes")
-        .select("*")
-        .order("nome")
+  const opcao = prompt(
+    `Mensalidade de ${nomePaciente}\nMês: ${new Date().toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}\n\nStatus atual: ${statusAtual || "não registrado"}\n\nDigite:\n  1 = Marcar como PAGO\n  2 = Marcar como PENDENTE\n  3 = Marcar como ATRASADO`
+  );
 
-    if(error){
-        alert("Erro ao carregar pacientes")
-        return
-    }
+  if (!opcao) return;
+  const mapa = { "1": "pago", "2": "pendente", "3": "atrasado" };
+  const novoStatus = mapa[opcao.trim()];
+  if (!novoStatus) return alert("Opção inválida.");
 
-    const tabela = document.getElementById("tabelaPacientes")
+  const pac = pacientesCache.find(p => p.id === pacienteId);
+  const valor = parseFloat(pac?.valor_mensalidade) || 0;
 
-    data.forEach(p => {
+  const { data: existe } = await supabase.from("pagamentos").select("id")
+    .eq("paciente_id", pacienteId).eq("mes_referencia", mesRef).limit(1).single();
 
-        let linha = tabela.insertRow()
+  let err;
+  if (existe) {
+    const upd = { status: novoStatus };
+    if (novoStatus === "pago") upd.data_pagamento = new Date().toISOString().split("T")[0];
+    ({ error: err } = await supabase.from("pagamentos").update(upd).eq("id", existe.id));
+  } else {
+    ({ error: err } = await supabase.from("pagamentos").insert([{
+      instituicao_id: instituicaoId,
+      paciente_id: pacienteId,
+      mes_referencia: mesRef,
+      valor,
+      status: novoStatus,
+      data_pagamento: novoStatus === "pago" ? new Date().toISOString().split("T")[0] : null
+    }]));
+  }
 
-        linha.insertCell(0).innerText = p.nome
-        linha.insertCell(1).innerText = p.cpf || ""
+  if (err) { alert("Erro: " + err.message); return; }
 
-        let btnEditar = `<button onclick="editarPaciente(${p.id})">Editar</button>`
-        linha.insertCell(2).innerHTML = btnEditar
-    })
+  // Log
+  if (typeof registrarLog === 'function')
+    registrarLog('pagar', 'pagamento', nomePaciente, `Mensalidade marcada como "${novoStatus}"`);
+
+  pagamentosCache[pacienteId] = novoStatus;
+  renderizarPacientes(pacientesCache);
 }
 
-carregarPacientes()
-
-function editarPaciente(id){
-    window.location.href = "editarPaciente.html?id=" + id
+// ── OBSERVAÇÃO RÁPIDA ─────────────────────────────────
+function abrirObs(id, nome) {
+  obsEditandoId = id;
+  const p = pacientesCache.find(p=>p.id===id);
+  document.getElementById('obsModalLabel').textContent = `💬 ${nome}`;
+  document.getElementById('obsTexto').value = p?.obs_rapida || '';
+  document.getElementById('fbObs').textContent = '';
+  document.getElementById('modalObs').style.display = 'flex';
+  setTimeout(()=>document.getElementById('obsTexto').focus(), 100);
 }
 
-function novoPaciente(){
-    window.location.href = "editarPaciente.html"
+function fecharObs() {
+  document.getElementById('modalObs').style.display = 'none';
+  obsEditandoId = null;
 }
 
+async function salvarObs() {
+  const fb  = document.getElementById('fbObs');
+  const txt = document.getElementById('obsTexto').value.trim();
+  fb.textContent = 'Salvando...'; fb.style.color = '#64748b';
+
+  const { error } = await supabase.from('pacientes')
+    .update({ obs_rapida: txt || null })
+    .eq('id', obsEditandoId).eq('instituicao_id', instituicaoId);
+
+  if (error) { fb.textContent = 'Erro: ' + error.message; fb.style.color='#ef4444'; return; }
+
+  // Atualiza cache local
+  const idx = pacientesCache.findIndex(p=>p.id===obsEditandoId);
+  if (idx>=0) pacientesCache[idx].obs_rapida = txt || null;
+
+  fb.textContent = '✅ Salvo!'; fb.style.color='#10b981';
+  setTimeout(()=>{ fecharObs(); renderizarPacientes(pacientesCache); }, 800);
+}
+
+function formatarData(iso) {
+  if (!iso) return "—";
+  const [a, m, d] = iso.split("-");
+  return `${d}/${m}/${a}`;
+}
+
+iniciar();
 </script>
-
 </body>
 </html>

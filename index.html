@@ -2,106 +2,209 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Sistema CT v1.1 - Login</title>
+<title>Sistema CT — Login</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<link rel="stylesheet" href="layout.css">
 <style>
-body{
-    font-family: Arial;
-    background:#f4f4f4;
-    padding:20px;
-}
-
-.container{
-    max-width:400px;
-    margin:auto;
-    background:white;
-    padding:20px;
-    border-radius:8px;
-    box-shadow:0 0 10px rgba(0,0,0,0.1);
-}
-
-h1{
-    text-align:center;
-}
-
-input{
-    width:100%;
-    padding:10px;
-    margin-top:10px;
-}
-
-button{
-    width:100%;
-    padding:10px;
-    margin-top:15px;
-    cursor:pointer;
-}
-
-#mensagem{
-    margin-top:10px;
-    color:red;
-}
+  .btn-login:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+  .input-error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.12) !important;
+  }
+  #mensagem {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+    font-size: 13px;
+    text-align: left;
+    padding: 10px 14px;
+    border-radius: 8px;
+    display: none;
+  }
+  #mensagem.erro {
+    display: flex;
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+  }
+  #mensagem.info {
+    display: flex;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+  }
+  .login-container .form-group input {
+    transition: border-color 0.18s, box-shadow 0.18s;
+  }
+  .login-version {
+    margin-top: 28px;
+    font-size: 11px;
+    color: #94a3b8;
+    text-align: center;
+  }
 </style>
 </head>
-<body>
 
-<div class="container">
-    <h1>Sistema CT v1.1</h1>
+<body class="login-body" style="padding:0;">
 
-    <h3>Login</h3>
+<div class="login-wrapper">
 
-    <input type="email" id="email" placeholder="E-mail">
-    <input type="password" id="password" placeholder="Senha">
+  <!-- Painel esquerdo (informativo) -->
+  <div class="login-left">
+    <div class="login-left-icon">🏥</div>
+    <h2>Sistema CT</h2>
+    <p>Plataforma de gestão para centros terapêuticos. Simples, segura e eficiente.</p>
+    <div class="login-features">
+      <div class="login-feature">✅ Gestão completa de pacientes</div>
+      <div class="login-feature">✅ Controle financeiro integrado</div>
+      <div class="login-feature">✅ Geração de documentos automática</div>
+      <div class="login-feature">✅ Alertas de contratos a vencer</div>
+    </div>
+  </div>
 
-    <button onclick="login()">Entrar</button>
+  <!-- Painel direito (formulário) -->
+  <div class="login-right">
+    <div class="login-container">
 
-    <div id="mensagem"></div>
+      <div class="logo">
+        <div class="logo-icon">CT</div>
+        <span class="logo-text">Sistema CT</span>
+      </div>
+
+      <h1>Bem-vindo de volta</h1>
+      <p class="login-sub">Acesse sua conta para continuar</p>
+
+      <div class="form-group">
+        <label for="email">E-mail</label>
+        <input type="email" id="email" placeholder="seu@email.com"
+               autocomplete="email" oninput="limparErro()">
+      </div>
+
+      <div class="form-group">
+        <label for="password">Senha</label>
+        <input type="password" id="password" placeholder="••••••••"
+               autocomplete="current-password" oninput="limparErro()">
+      </div>
+
+      <button class="btn-login" id="btnLogin" onclick="login()">
+        Entrar na plataforma
+      </button>
+
+      <div id="mensagem"></div>
+
+      <p class="login-version">Sistema CT v2.0</p>
+
+    </div>
+  </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
 
 <script>
-const SUPABASE_URL = "https://ocrcqcqzvmdzvhlpykcd.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_2wiSDlRGeZKif9LDzRKj7Q_SJPl17t9";
+  // ── Utilitários de UI ──────────────────────────────────────
+  function setMensagem(texto, tipo) {
+    const el = document.getElementById("mensagem");
+    el.className = tipo; // 'erro' ou 'info'
+    el.textContent = tipo === "erro" ? "⚠️  " + texto : "⏳  " + texto;
+  }
 
-const supabaseClient = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_ANON_KEY
-);
+  function limparErro() {
+    const el = document.getElementById("mensagem");
+    el.className = "";
+    el.textContent = "";
+    document.getElementById("email").classList.remove("input-error");
+    document.getElementById("password").classList.remove("input-error");
+  }
 
-// 🔐 LOGIN
-async function login(){
+  function setBotao(loading) {
+    const btn = document.getElementById("btnLogin");
+    btn.disabled = loading;
+    btn.textContent = loading ? "Verificando..." : "Entrar na plataforma";
+  }
 
-    document.getElementById("mensagem").innerText = "Entrando...";
+  // ── Login ──────────────────────────────────────────────────
+  async function login() {
+    limparErro();
 
-    const email = document.getElementById("email").value;
+    const email    = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
 
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email: email,
-        password: password
-    });
+    // Validação básica
+    if (!email) {
+      document.getElementById("email").classList.add("input-error");
+      setMensagem("Informe seu e-mail.", "erro");
+      document.getElementById("email").focus();
+      return;
+    }
+    if (!password) {
+      document.getElementById("password").classList.add("input-error");
+      setMensagem("Informe sua senha.", "erro");
+      document.getElementById("password").focus();
+      return;
+    }
 
-    if(error){
-        document.getElementById("mensagem").innerText = error.message;
+    setBotao(true);
+    setMensagem("Verificando credenciais...", "info");
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        // Mapeia mensagens de erro do Supabase para português
+        const msg = traduzirErro(error.message);
+        setMensagem(msg, "erro");
+        document.getElementById("password").classList.add("input-error");
+        document.getElementById("password").focus();
         return;
+      }
+
+      // Sucesso — redireciona
+      window.location.href = "dashboard.html";
+
+    } catch (e) {
+      setMensagem("Erro de conexão. Verifique sua internet e tente novamente.", "erro");
+    } finally {
+      setBotao(false);
     }
+  }
 
-    window.location.href = "pacientes.html";
-}
+  function traduzirErro(msg) {
+    if (!msg) return "Erro desconhecido. Tente novamente.";
+    const m = msg.toLowerCase();
+    if (m.includes("invalid login credentials") || m.includes("invalid credentials"))
+      return "E-mail ou senha incorretos.";
+    if (m.includes("email not confirmed"))
+      return "E-mail ainda não confirmado. Verifique sua caixa de entrada.";
+    if (m.includes("too many requests"))
+      return "Muitas tentativas. Aguarde alguns minutos e tente novamente.";
+    if (m.includes("network") || m.includes("fetch"))
+      return "Erro de conexão. Verifique sua internet.";
+    return "Erro ao fazer login. Tente novamente.";
+  }
 
-// 🔎 VERIFICA SE JÁ ESTÁ LOGADO
-async function verificarSessao(){
+  // ── Enter em qualquer campo dispara o login ────────────────
+  document.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !document.getElementById("btnLogin").disabled) login();
+  });
 
-    const { data } = await supabaseClient.auth.getSession();
-
-    if(data.session){
-        window.location.href = "pacientes.html";
+  // ── Redireciona se já estiver logado ──────────────────────
+  (async () => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session) window.location.href = "dashboard.html";
+    } catch (e) {
+      // supabase.js pode estar mal configurado — não trava a tela
+      console.warn("Supabase não inicializado corretamente:", e.message);
     }
-}
-
-verificarSessao();
+  })();
 </script>
 
 </body>

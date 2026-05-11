@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Documentos — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/pizzip@3.1.5/dist/pizzip.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.37.11/docxtemplater.js"></script>
+<style>
+.doc-layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+@media (max-width: 900px) { .doc-layout { grid-template-columns: 1fr; } }
+
+.doc-sidebar { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+.doc-sidebar-header { padding: 14px 18px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 13.5px; background: var(--bg); }
+.doc-pac-item { padding: 11px 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .12s; display: flex; align-items: center; gap: 10px; }
+.doc-pac-item:hover { background: var(--bg); }
+.doc-pac-item.selected { background: var(--primary-light); border-left: 3px solid var(--primary); }
+.doc-pac-ini { width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.doc-pac-item.selected .doc-pac-ini { background: var(--primary); color: white; }
+.doc-pac-search { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.doc-pac-search input { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: 'Inter', sans-serif; outline: none; }
+.doc-pac-list { max-height: 400px; overflow-y: auto; }
+
+.doc-main { display: flex; flex-direction: column; gap: 16px; }
+
+.doc-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+.doc-card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--bg); font-weight: 600; font-size: 14px; }
+
+.modelo-item { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.modelo-item:last-child { border-bottom: none; }
+.modelo-info { display: flex; flex-direction: column; gap: 2px; }
+.modelo-nome { font-size: 14px; font-weight: 600; }
+.modelo-status { font-size: 12px; color: var(--text-secondary); }
+.modelo-btns { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+
+.upload-area { border: 2px dashed var(--border); border-radius: var(--radius-md); padding: 12px 16px; cursor: pointer; transition: all .18s; background: var(--bg); display: flex; align-items: center; gap: 10px; }
+.upload-area:hover { border-color: var(--primary); background: var(--primary-light); }
+.upload-area input { display: none; }
+.upload-area .ua-icon { font-size: 20px; }
+.upload-area .ua-text { font-size: 12.5px; color: var(--text-secondary); }
+
+/* Gerador de chamada */
+.chamada-preview { font-family: 'Georgia', serif; font-size: 13px; line-height: 1.8; }
+.chamada-preview .ch-title { font-size: 18px; font-weight: bold; text-align: center; margin-bottom: 6px; }
+.chamada-preview .ch-sub { text-align: center; color: #64748b; margin-bottom: 16px; font-size: 12px; }
+.chamada-preview table { width: 100%; border-collapse: collapse; }
+.chamada-preview th { border: 1px solid #ccc; padding: 6px 10px; background: #f1f5f9; font-size: 12px; }
+.chamada-preview td { border: 1px solid #ccc; padding: 6px 10px; font-size: 12.5px; }
+.chamada-preview .ch-assinatura { height: 32px; }
+</style>
+</head>
+<body>
+
+<div class="sidebar"></div>
+
+<div class="content">
+
+  <div class="header-page">
+    <div>
+      <h1>Documentos</h1>
+      <p class="page-subtitle">Geração automática de contratos e documentos</p>
+    </div>
+  </div>
+
+  <div class="doc-layout">
+
+    <!-- Sidebar: seleção de paciente -->
+    <div class="doc-sidebar">
+      <div class="doc-sidebar-header">👤 Selecionar Paciente</div>
+      <div class="doc-pac-search">
+        <input type="text" id="searchDoc" placeholder="Buscar..." oninput="filtrarDocPac()">
+      </div>
+      <div class="doc-pac-list" id="docPacList">
+        <div style="padding:16px;color:#94a3b8;font-size:13px;text-align:center;">Carregando...</div>
+      </div>
+    </div>
+
+    <!-- Área principal -->
+    <div class="doc-main">
+
+      <!-- Upload de modelos -->
+      <div class="doc-card">
+        <div class="doc-card-header">📎 Upload de Modelos (.docx)</div>
+        <div id="listaModelos">
+          <div style="padding:20px;color:#94a3b8;font-size:13px;">Carregando modelos...</div>
+        </div>
+      </div>
+
+      <!-- Geração de documentos -->
+      <div class="doc-card">
+        <div class="doc-card-header">📄 Gerar Documentos</div>
+        <div id="pacSelecionadoInfo" style="padding:14px 20px;background:var(--primary-light);border-bottom:1px solid var(--border);font-size:13px;color:var(--primary);display:none;">
+          <strong>Paciente:</strong> <span id="nomePacSel">—</span>
+        </div>
+        <div id="listaGeradores">
+          <div style="padding:20px;color:#94a3b8;font-size:13px;">Selecione um paciente para gerar documentos.</div>
+        </div>
+      </div>
+
+      <!-- Lista de Chamada -->
+      <div class="doc-card">
+        <div class="doc-card-header">📋 Lista de Chamada</div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+          <p style="font-size:13px;color:#64748b;">Gera lista com todos os pacientes <strong>ativos</strong>, ordenada por data de entrada, incluindo terapeuta e psicólogo.</p>
+          <div>
+            <button class="btn-primary" onclick="gerarChamadaPreview()">👁️ Visualizar</button>
+            <button class="btn-secondary" style="margin-left:8px;" onclick="imprimirChamada()">🖨️ Imprimir</button>
+          </div>
+          <div id="chamadaPreview"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script src="supabase.js"></script>
+<script src="sidebar.js"></script>
+<script>
+let instituicao = null;
+let pacientes = [];
+let pacSelecionado = null;
+let modelosDB = [];
+
+const TIPOS_MODELOS = [
+  { key: 'contrato',   label: 'Contrato',   icon: '📝' },
+  { key: 'declaracao', label: 'Declaração', icon: '📋' },
+  { key: 'termo',      label: 'Termo',      icon: '📜' },
+];
+
+async function iniciar() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = "index.html"; return; }
+
+  const { data: usuario } = await supabase.from("usuarios").select("instituicao_id").eq("id", session.user.id).single();
+  if (!usuario) return;
+
+  const { data: inst } = await supabase.from("instituicoes").select("*").eq("id", usuario.instituicao_id).single();
+  instituicao = inst || { instituicao_id: usuario.instituicao_id };
+
+  const { data: pacs } = await supabase.from("pacientes").select("*")
+    .eq("instituicao_id", usuario.instituicao_id).order("data_inicio_contrato", { ascending: true });
+  pacientes = pacs || [];
+  renderDocPacList(pacientes);
+
+  await carregarModelos(usuario.instituicao_id);
+}
+
+function renderDocPacList(lista) {
+  const el = document.getElementById("docPacList");
+  if (!lista.length) { el.innerHTML = `<div style="padding:16px;color:#94a3b8;font-size:13px;text-align:center;">Nenhum paciente.</div>`; return; }
+  el.innerHTML = lista.map(p => {
+    const ini = p.nome.split(" ").slice(0,2).map(n=>n[0]).join("").toUpperCase();
+    const sel = pacSelecionado?.id === p.id ? "selected" : "";
+    return `<div class="doc-pac-item ${sel}" onclick="selecionarDocPac('${p.id}')">
+      <div class="doc-pac-ini">${ini}</div>
+      <div style="font-size:13px;font-weight:500;">${p.nome}</div>
+    </div>`;
+  }).join("");
+}
+
+function filtrarDocPac() {
+  const q = document.getElementById("searchDoc").value.toLowerCase();
+  renderDocPacList(pacientes.filter(p => p.nome.toLowerCase().includes(q)));
+}
+
+function selecionarDocPac(id) {
+  pacSelecionado = pacientes.find(p => p.id === id);
+  renderDocPacList(pacientes);
+  document.getElementById("pacSelecionadoInfo").style.display = "";
+  document.getElementById("nomePacSel").textContent = pacSelecionado.nome;
+  renderGeradores();
+}
+
+async function carregarModelos(instId) {
+  const { data } = await supabase.from("modelos_doc").select("*").eq("instituicao_id", instId).order("created_at", { ascending: false });
+  modelosDB = data || [];
+  renderModelos(instId);
+}
+
+function renderModelos(instId) {
+  const el = document.getElementById("listaModelos");
+  el.innerHTML = TIPOS_MODELOS.map(tipo => {
+    const modelo = modelosDB.find(m => m.tipo === tipo.key);
+    const status = modelo ? `✅ Modelo carregado — atualizado em ${new Date(modelo.created_at).toLocaleDateString("pt-BR")}` : 'Nenhum modelo carregado';
+    return `<div class="modelo-item">
+      <div class="modelo-info">
+        <div class="modelo-nome">${tipo.icon} ${tipo.label}</div>
+        <div class="modelo-status">${status}</div>
+      </div>
+      <div class="modelo-btns">
+        <label class="upload-area" style="padding:6px 12px;font-size:12px;">
+          <input type="file" accept=".docx" onchange="uploadModelo('${tipo.key}', this, '${instId}')">
+          <span class="ua-icon">📤</span>
+          <span class="ua-text">${modelo ? 'Substituir' : 'Enviar'} .docx</span>
+        </label>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function uploadModelo(tipo, input, instId) {
+  if (!input.files[0]) return;
+  const file = input.files[0];
+  const filePath = `${instId}/${tipo}_${Date.now()}.docx`;
+
+  const { error: upErr } = await supabase.storage.from("modelos").upload(filePath, file, { upsert: true });
+  if (upErr) { alert("Erro upload: " + upErr.message); return; }
+
+  const { data: pub } = supabase.storage.from("modelos").getPublicUrl(filePath);
+
+  // Remove modelo antigo deste tipo
+  await supabase.from("modelos_doc").delete().eq("instituicao_id", instId).eq("tipo", tipo);
+
+  await supabase.from("modelos_doc").insert({
+    instituicao_id: instId,
+    nome_modelo: tipo, tipo,
+    arquivo_url: pub.publicUrl
+  });
+
+  alert("✅ Modelo salvo com sucesso!");
+  await carregarModelos(instId);
+  renderGeradores();
+}
+
+function renderGeradores() {
+  if (!pacSelecionado) return;
+  const el = document.getElementById("listaGeradores");
+
+  el.innerHTML = TIPOS_MODELOS.map(tipo => {
+    const modelo = modelosDB.find(m => m.tipo === tipo.key);
+    return `<div class="modelo-item">
+      <div class="modelo-info">
+        <div class="modelo-nome">${tipo.icon} ${tipo.label}</div>
+        <div class="modelo-status">${modelo ? '✅ Modelo disponível' : '⚠️ Modelo não carregado'}</div>
+      </div>
+      <div class="modelo-btns">
+        ${modelo ? `<button class="btn-doc btn-docx" onclick="gerarDocumento('${tipo.key}')">⬇️ DOCX</button>` : ''}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function gerarDocumento(tipo) {
+  if (!pacSelecionado) return alert("Selecione um paciente.");
+  const modelo = modelosDB.find(m => m.tipo === tipo);
+  if (!modelo) return alert("Modelo não encontrado. Faça o upload primeiro.");
+
+  const response = await fetch(modelo.arquivo_url);
+  const content = await response.arrayBuffer();
+
+  const zip = new PizZip(content);
+  const doc = new window.docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
+
+  const p = pacSelecionado;
+  const meses = calcMeses(p.data_inicio_contrato, p.data_fim_contrato);
+  const dias   = calcDias(p.data_inicio_contrato, p.data_fim_contrato);
+  const valorTotal = meses * (parseFloat(p.valor_mensalidade)||0);
+
+  doc.setData({
+    nome_paciente: p.nome || "",
+    cpf_paciente: p.cpf || "",
+    rg_paciente: p.rg || "",
+    data_nascimento_paciente: fmtData(p.data_nascimento),
+    data_inicio_contrato: fmtData(p.data_inicio_contrato),
+    data_fim_contrato: fmtData(p.data_fim_contrato),
+    nome_responsavel: p.responsavel_nome || "",
+    parentesco: p.parentesco || "",
+    rg_responsavel: p.responsavel_rg || "",
+    cpf_responsavel: p.responsavel_cpf || "",
+    endereco_responsavel: p.responsavel_endereco || "",
+    numero_residencia: p.numero_residencia || "",
+    bairro: p.bairro || "",
+    cidade: p.cidade || "",
+    estado: p.estado || "",
+    cep_responsavel: p.cep_responsavel || "",
+    telefone_responsavel: p.responsavel_telefone || "",
+    telefone_responsavel2: p.responsavel_telefone2 || "",
+    nome_instituicao: instituicao?.nome || "",
+    cnpj: instituicao?.cnpj || "",
+    telefone: instituicao?.telefone || "",
+    cidade_instituicao: instituicao?.cidade || "",
+    tempo_emmes: meses,
+    tempo_emdias: dias,
+    valor_mensalidade: moeda(p.valor_mensalidade),
+    valor_total: moeda(valorTotal),
+    data_hoje_porextenso: new Date().toLocaleDateString("pt-BR",{day:"numeric",month:"long",year:"numeric"}),
+    data_atual: fmtData(new Date().toISOString().split("T")[0]),
+    nome_dono: instituicao?.nome_dono || "",
+  });
+
+  try { doc.render(); } catch(e) { alert("Erro no template. Verifique as variáveis."); return; }
+
+  const blob = doc.getZip().generate({ type: "blob" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `${tipo}_${p.nome}.docx`;
+  link.click();
+}
+
+async function gerarChamadaPreview() {
+  const ativos = pacientes.filter(p => !p.data_desligamento)
+    .sort((a,b) => (a.data_inicio_contrato||'').localeCompare(b.data_inicio_contrato||''));
+
+  const instNome = instituicao?.nome || 'Instituição';
+
+  let rows = ativos.map((p, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${p.nome}</td>
+      <td>${fmtData(p.data_inicio_contrato)}</td>
+      <td>${p.terapeuta || '—'}</td>
+      <td>${p.psicologo || '—'}</td>
+      <td class="ch-assinatura"></td>
+    </tr>`).join("");
+
+  const html = `<div class="chamada-preview">
+    <div class="ch-title">${instNome}</div>
+    <div class="ch-sub">Lista de Chamada — Pacientes Ativos — Gerada em ${new Date().toLocaleDateString("pt-BR")}</div>
+    <table>
+      <thead><tr><th>#</th><th>Nome Completo</th><th>Data Entrada</th><th>Terapeuta</th><th>Psicólogo</th><th>Assinatura</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:20px;font-size:12px;color:#94a3b8;text-align:right;">Total: ${ativos.length} paciente${ativos.length!==1?'s':''} ativos</div>
+  </div>`;
+
+  document.getElementById("chamadaPreview").innerHTML = html;
+}
+
+function imprimirChamada() {
+  const el = document.getElementById("chamadaPreview");
+  if (!el.innerHTML) { gerarChamadaPreview(); setTimeout(imprimirChamada, 300); return; }
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <html><head><title>Lista de Chamada</title>
+    <style>
+      body { font-family: Georgia, serif; font-size: 13px; margin: 32px; }
+      h2 { text-align:center; } .sub { text-align:center; color:#64748b; margin-bottom:16px; font-size:12px; }
+      table { width:100%; border-collapse:collapse; }
+      th,td { border:1px solid #ccc; padding:6px 10px; font-size:12px; }
+      th { background:#f1f5f9; font-weight:600; }
+      .ch-assinatura { height:32px; }
+    </style></head><body>
+    ${el.innerHTML}
+    </body></html>`);
+  win.document.close();
+  win.print();
+}
+
+function calcMeses(ini, fim) {
+  if (!ini || !fim) return 0;
+  const d1 = new Date(ini), d2 = new Date(fim);
+  return (d2.getFullYear()-d1.getFullYear())*12 + d2.getMonth()-d1.getMonth()+1;
+}
+function calcDias(ini, fim) {
+  if (!ini || !fim) return 0;
+  return Math.ceil((new Date(fim)-new Date(ini))/(1000*60*60*24));
+}
+function moeda(v) {
+  if (!v) return "R$ 0,00";
+  return Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+}
+function fmtData(iso) {
+  if (!iso) return "—";
+  const [a,m,d] = iso.split("-");
+  return `${d}/${m}/${a}`;
+}
+
+iniciar();
+</script>
+</body>
+</html>

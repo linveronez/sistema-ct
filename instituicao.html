@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Instituição — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+</head>
+<body>
+<div class="sidebar"></div>
+<div class="content">
+  <div class="header-page">
+    <div>
+      <h1>Configurações da Instituição</h1>
+      <p class="page-subtitle">Dados da sua organização</p>
+    </div>
+  </div>
+
+  <div class="card-config">
+    <div class="card-config-header">
+      <span class="form-section-title">🏥 Dados Institucionais</span>
+    </div>
+    <div class="card-config-body">
+      <div class="form-group">
+        <label>Nome da Instituição</label>
+        <input type="text" id="nome" placeholder="Nome do centro terapêutico">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nome do Responsável</label>
+          <input type="text" id="dono" placeholder="Nome completo">
+        </div>
+        <div class="form-group">
+          <label>Telefone</label>
+          <input type="text" id="telefone" placeholder="(11) 99999-9999">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="email" placeholder="contato@instituicao.com.br">
+        </div>
+        <div class="form-group">
+          <label>CNPJ</label>
+          <input type="text" id="cnpj" placeholder="00.000.000/0001-00">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Endereço</label>
+        <input type="text" id="endereco" placeholder="Rua, número, bairro, cidade, estado">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Cidade</label>
+          <input type="text" id="cidade" placeholder="Cidade">
+        </div>
+        <div class="form-group">
+          <label>Estado</label>
+          <input type="text" id="estado" placeholder="SP">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Logo da Instituição</label>
+        <input type="file" id="logoInput" accept="image/*" style="font-size:13px;">
+        <img id="previewLogo" class="logo-preview" style="display:none;margin-top:10px;">
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" onclick="salvarInstituicao()">💾 Salvar Alterações</button>
+        <span id="feedbackMsg" style="font-size:13px;color:#64748b;"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script src="sidebar.js"></script>
+<script>
+let logoFile = null;
+let instituicaoId = null;
+
+document.getElementById("logoInput").addEventListener("change", function(e) {
+  logoFile = e.target.files[0];
+  if (logoFile) {
+    const preview = document.getElementById("previewLogo");
+    preview.src = URL.createObjectURL(logoFile);
+    preview.style.display = "block";
+  }
+});
+
+async function carregarInstituicao() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = "index.html"; return; }
+
+  const { data: usuario } = await supabase
+    .from("usuarios").select("instituicao_id").eq("id", session.user.id).single();
+  if (!usuario) return;
+  instituicaoId = usuario.instituicao_id;
+
+  const { data } = await supabase.from("instituicoes").select("*").eq("id", instituicaoId).single();
+  if (!data) return;
+
+  document.getElementById("nome").value      = data.nome || "";
+  document.getElementById("dono").value      = data.nome_dono || "";
+  document.getElementById("email").value     = data.email || "";
+  document.getElementById("telefone").value  = data.telefone || "";
+  document.getElementById("endereco").value  = data.endereco || "";
+  document.getElementById("cnpj").value      = data.cnpj || "";
+  document.getElementById("cidade").value    = data.cidade || "";
+  document.getElementById("estado").value    = data.estado || "";
+
+  if (data.logo_url) {
+    const preview = document.getElementById("previewLogo");
+    preview.src = data.logo_url;
+    preview.style.display = "block";
+  }
+}
+
+async function salvarInstituicao() {
+  const msg = document.getElementById("feedbackMsg");
+  msg.textContent = "Salvando..."; msg.style.color = "#64748b";
+
+  let logo_url = null;
+  if (logoFile) {
+    const fileName = "logo_" + Date.now() + ".png";
+    const { error: uploadErr } = await supabase.storage.from("logos").upload(fileName, logoFile, {upsert:true});
+    if (uploadErr) { msg.textContent = "Erro ao enviar logo: " + uploadErr.message; msg.style.color="#ef4444"; return; }
+    const { data: pubData } = supabase.storage.from("logos").getPublicUrl(fileName);
+    logo_url = pubData.publicUrl;
+  }
+
+  const dados = {
+    nome:      document.getElementById("nome").value,
+    nome_dono: document.getElementById("dono").value,
+    email:     document.getElementById("email").value,
+    telefone:  document.getElementById("telefone").value,
+    endereco:  document.getElementById("endereco").value,
+    cnpj:      document.getElementById("cnpj").value,
+    cidade:    document.getElementById("cidade").value,
+    estado:    document.getElementById("estado").value,
+  };
+  if (logo_url) dados.logo_url = logo_url;
+
+  // FIX: usar .eq("id", instituicaoId) em vez de .neq("id", 0)
+  const { error } = await supabase.from("instituicoes").update(dados).eq("id", instituicaoId);
+  if (error) { msg.textContent = "Erro: " + error.message; msg.style.color="#ef4444"; return; }
+
+  msg.textContent = "✅ Salvo com sucesso!"; msg.style.color="#10b981";
+  setTimeout(() => msg.textContent="", 3000);
+}
+
+carregarInstituicao();
+</script>
+</body>
+</html>

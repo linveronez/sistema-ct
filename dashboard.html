@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Painel — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+<style>
+.dash-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: all .18s;
+  position: relative;
+  overflow: hidden;
+  text-decoration: none;
+  display: block;
+  color: inherit;
+}
+.kpi-card::after {
+  content:'';position:absolute;bottom:0;left:0;right:0;height:3px;
+  background: var(--kpi-color, var(--primary));
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.kpi-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); }
+.kpi-icon { font-size: 22px; margin-bottom: 10px; }
+.kpi-lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-secondary); margin-bottom: 4px; }
+.kpi-val { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -1px; line-height: 1; color: var(--text-primary); }
+.kpi-sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+.dash-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+@media(max-width:1100px){ .dash-panels { grid-template-columns: 1fr 1fr; } }
+@media(max-width:700px){ .dash-panels { grid-template-columns: 1fr; } }
+
+.panel-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.panel-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg);
+}
+.panel-title { font-weight: 700; font-size: 13.5px; color: var(--text-primary); }
+.panel-body { padding: 16px 18px; }
+
+.panel-filter-tabs { display:flex; gap:4px; margin-bottom:12px; flex-wrap:wrap; }
+.panel-tab {
+  padding:4px 10px; font-size:11.5px; border-radius:20px;
+  cursor:pointer; border:1px solid var(--border); background: var(--bg);
+  color:var(--text-secondary); font-family:'Inter',sans-serif; transition:all .14s;
+}
+.panel-tab.active { background:var(--primary); color:white; border-color:var(--primary); }
+
+.donut-wrap { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+.donut { width:110px; height:110px; border-radius:50%; flex-shrink:0; position:relative; }
+.donut-center {
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:72px;height:72px;border-radius:50%;background:white;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.donut-center .dc-val { font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;font-weight:800;line-height:1; }
+.donut-center .dc-lbl { font-size:9px;color:var(--text-secondary);font-weight:600; }
+.donut-legend { display:flex;flex-direction:column;gap:7px;flex:1; }
+.legend-item { display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;border-radius:6px;padding:2px 4px;transition:background .12s; }
+.legend-item:hover { background:var(--bg); }
+.legend-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
+.legend-val { margin-left:auto;font-weight:700; }
+
+.stat-mini-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+.stat-mini { background:var(--bg);border-radius:var(--radius-md);padding:10px 12px;text-align:center; }
+.stat-mini .smv { font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;font-weight:800; }
+.stat-mini .sml { font-size:10px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-top:2px; }
+
+.bar-list { display:flex;flex-direction:column;gap:9px;max-height:250px;overflow-y:auto; }
+.bar-item { display:flex;flex-direction:column;gap:3px; }
+.bar-item-header { display:flex;justify-content:space-between;font-size:12px; }
+.bar-item-label { color:var(--text-primary);font-weight:500; }
+.bar-item-val { color:var(--text-secondary);font-size:11.5px; }
+.bar-track { height:7px;background:var(--bg);border-radius:99px;overflow:hidden; }
+.bar-fill { height:100%;border-radius:99px;transition:width .6s ease; }
+
+.dash-bottom { display:grid;grid-template-columns:1fr 1fr;gap:18px; }
+@media(max-width:800px){ .dash-bottom { grid-template-columns:1fr; } }
+
+.bday-item { display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border); }
+.bday-item:last-child { border-bottom:none; }
+.bday-avatar { width:30px;height:30px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0; }
+.bday-nome { font-size:12.5px;font-weight:600; }
+.bday-data { font-size:11px;color:var(--text-secondary); }
+
+.notif-btn { position:relative;background:none;border:none;cursor:pointer;font-size:20px;padding:6px;border-radius:var(--radius-md);transition:background .12s; }
+.notif-btn:hover { background:var(--bg); }
+.notif-badge {
+  position:absolute;top:-2px;right:-2px;background:var(--danger);color:white;
+  border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.notif-wrap { position:relative; }
+.notif-dropdown {
+  position:absolute;right:0;top:calc(100% + 8px);
+  width:300px;background:white;border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);
+  z-index:300;overflow:hidden;display:none;
+}
+.notif-dropdown.open { display:block; }
+.notif-dropdown-header { padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px; }
+.notif-item { padding:10px 16px;border-bottom:1px solid var(--border);font-size:12.5px;display:flex;gap:8px; }
+.notif-item:last-child { border-bottom:none; }
+.notif-empty { padding:20px;text-align:center;color:var(--text-muted);font-size:13px; }
+
+.rec-table { width:100%;border-collapse:collapse; }
+.rec-table td,.rec-table th { padding:9px 16px;font-size:12.5px;border-bottom:1px solid var(--border); }
+.rec-table th { font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text-secondary);background:var(--bg); }
+.rec-table tr:last-child td { border-bottom:none; }
+.rec-table tbody tr:hover td { background:#f8fafc; }
+
+.alerta-box { background:#fffbeb;border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:var(--radius-md);padding:12px 16px;margin-bottom:18px; }
+.alerta-box-title { font-size:13px;font-weight:600;color:#92400e;margin-bottom:5px; }
+.alerta-item { font-size:12.5px;color:#78350f;padding:2px 0; }
+
+/* ── GRÁFICO de barras SVG ── */
+.grafico-barras { overflow-x: auto; padding-bottom: 4px; }
+.grafico-barras svg { display: block; }
+.bar-grafico { transition: opacity .18s; cursor: pointer; }
+.bar-grafico:hover { opacity: .8; }
+.grafico-legenda { display: flex; gap: 16px; padding: 10px 0 0; flex-wrap: wrap; }
+.grafico-leg-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+.grafico-leg-dot { width: 10px; height: 10px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="sidebar"></div>
+<div class="content">
+
+  <div class="header-page">
+    <div>
+      <h1 id="saudacao">Painel</h1>
+      <p class="page-subtitle" id="dataHoje">Visão geral da instituição</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="notif-wrap" id="notifWrap">
+        <button class="notif-btn" onclick="toggleNotif()" title="Notificações">
+          🔔
+          <span class="notif-badge" id="notifCount" style="display:none;">0</span>
+        </button>
+        <div class="notif-dropdown" id="notifDropdown">
+          <div class="notif-dropdown-header">🔔 Notificações</div>
+          <div id="notifList"><div class="notif-empty">Carregando...</div></div>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="window.location.href='editarpaciente.html'">+ Novo Paciente</button>
+    </div>
+  </div>
+
+  <div id="alertas"></div>
+
+  <!-- KPI Cards -->
+  <div class="dash-kpi-grid">
+    <a class="kpi-card" href="pacientes.html?status=ativo" style="--kpi-color:#2563eb;">
+      <div class="kpi-icon">👤</div><div class="kpi-lbl">Pacientes Ativos</div>
+      <div class="kpi-val" id="kpiAtivos">—</div><div class="kpi-sub">clique para ver</div>
+    </a>
+    <a class="kpi-card" href="pacientes.html?status=encerrado" style="--kpi-color:#64748b;">
+      <div class="kpi-icon">🚪</div><div class="kpi-lbl">Encerrados</div>
+      <div class="kpi-val" id="kpiEncerrados">—</div><div class="kpi-sub">desde o início</div>
+    </a>
+    <a class="kpi-card" href="pacientes.html?vencendo=15" style="--kpi-color:#f59e0b;">
+      <div class="kpi-icon">⚠️</div><div class="kpi-lbl">Contratos a Vencer</div>
+      <div class="kpi-val" id="kpiVencendo">—</div><div class="kpi-sub">próximos 15 dias</div>
+    </a>
+    <a class="kpi-card" href="financeiro.html?aba=pagamentos&status=pendente" style="--kpi-color:#ef4444;">
+      <div class="kpi-icon">💳</div><div class="kpi-lbl">Mensalidades em Aberto</div>
+      <div class="kpi-val" id="kpiPendentes">—</div><div class="kpi-sub">mês atual</div>
+    </a>
+    <a class="kpi-card" href="financeiro.html?aba=pagamentos&status=pago" style="--kpi-color:#10b981;">
+      <div class="kpi-icon">✅</div><div class="kpi-lbl">Mensalidades Pagas</div>
+      <div class="kpi-val" id="kpiPagas">—</div><div class="kpi-sub">mês atual</div>
+    </a>
+    <a class="kpi-card" href="pacientes.html" style="--kpi-color:#8b5cf6;">
+      <div class="kpi-icon">🆕</div><div class="kpi-lbl">Entradas no Mês</div>
+      <div class="kpi-val" id="kpiNovos">—</div><div class="kpi-sub">mês atual</div>
+    </a>
+  </div>
+
+  <!-- 3 Painéis -->
+  <div class="dash-panels">
+
+    <!-- Painel 1: Status Pacientes -->
+    <div class="panel-card">
+      <div class="panel-header"><span class="panel-title">🥧 Status dos Pacientes</span></div>
+      <div class="panel-body">
+        <div class="panel-filter-tabs" id="donutTabs">
+          <button class="panel-tab active" onclick="filterDonut('todos',this)">Todos</button>
+          <button class="panel-tab" onclick="filterDonut('ativo',this)">Ativos</button>
+          <button class="panel-tab" onclick="filterDonut('encerrado',this)">Encerrados</button>
+        </div>
+        <div class="donut-wrap">
+          <div class="donut" id="donutPacientes">
+            <div class="donut-center">
+              <span class="dc-val" id="donutTotal">—</span>
+              <span class="dc-lbl">Total</span>
+            </div>
+          </div>
+          <div class="donut-legend" id="legendPacientes"></div>
+        </div>
+        <div class="stat-mini-grid" style="margin-top:12px;">
+          <div class="stat-mini"><div class="smv" id="miniAtivos" style="color:var(--primary);">—</div><div class="sml">Ativos</div></div>
+          <div class="stat-mini"><div class="smv" id="miniVenc15" style="color:var(--warning);">—</div><div class="sml">Venc. 15d</div></div>
+          <div class="stat-mini"><div class="smv" id="miniMensOk" style="color:var(--success);">—</div><div class="sml">Mens. Pagas</div></div>
+          <div class="stat-mini"><div class="smv" id="miniMensPend" style="color:var(--danger);">—</div><div class="sml">Mens. Pend.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Painel 2: Gastos -->
+    <div class="panel-card">
+      <div class="panel-header">
+        <span class="panel-title">📊 Gastos do Mês</span>
+        <span id="mesGastos" style="font-size:11px;color:var(--text-secondary);"></span>
+      </div>
+      <div class="panel-body">
+        <div class="panel-filter-tabs" id="gastoTabs">
+          <button class="panel-tab active" onclick="filterGastos('todos',this)">Todos</button>
+          <button class="panel-tab" onclick="filterGastos('pago',this)">Pagos</button>
+          <button class="panel-tab" onclick="filterGastos('pendente',this)">Pendentes</button>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:12px;">
+          <div style="flex:1;background:var(--success-light);border-radius:var(--radius-md);padding:8px;text-align:center;">
+            <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;color:#065f46;" id="gastoTotalPago">R$ 0</div>
+            <div style="font-size:10px;color:#065f46;font-weight:600;">✅ Pago</div>
+          </div>
+          <div style="flex:1;background:var(--warning-light);border-radius:var(--radius-md);padding:8px;text-align:center;">
+            <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;color:#92400e;" id="gastoTotalPend">R$ 0</div>
+            <div style="font-size:10px;color:#92400e;font-weight:600;">⏳ Pendente</div>
+          </div>
+        </div>
+        <div class="bar-list" id="barrasGastos">
+          <div style="color:var(--text-muted);font-size:13px;">Carregando...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Painel 3: Histórico & Aniversários -->
+    <div class="panel-card">
+      <div class="panel-header"><span class="panel-title">📈 Métricas & Aniversários</span></div>
+      <div class="panel-body">
+        <div class="stat-mini-grid" style="margin-bottom:14px;">
+          <div class="stat-mini"><div class="smv" id="metricTotal" style="color:var(--primary);">—</div><div class="sml">Histórico Total</div></div>
+          <div class="stat-mini"><div class="smv" id="metricMes" style="color:#8b5cf6;">—</div><div class="sml">Entradas Mês</div></div>
+          <div class="stat-mini"><div class="smv" id="metricBday" style="color:#f59e0b;">—</div><div class="sml">Aniv. Hoje</div></div>
+          <div class="stat-mini"><div class="smv" id="metricFuncs" style="color:var(--success);">—</div><div class="sml">Funcionários</div></div>
+        </div>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-secondary);margin-bottom:8px;">🎂 Aniversários da Semana</div>
+        <div id="aniversariantes" style="font-size:13px;color:var(--text-muted);">Carregando...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── GRÁFICO DE ENTRADA/SAÍDA POR MÊS ── (NOVO) -->
+  <div class="panel-card" style="margin-bottom:24px;">
+    <div class="panel-header">
+      <span class="panel-title">📈 Entrada e Saída de Pacientes — Últimos 12 Meses</span>
+      <div class="panel-filter-tabs" id="grafTabs" style="margin:0;">
+        <button class="panel-tab active" onclick="setGrafView('barras',this)">Barras</button>
+        <button class="panel-tab" onclick="setGrafView('linha',this)">Linha</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="grafico-barras" id="grafContainer">
+        <div style="color:var(--text-muted);font-size:13px;text-align:center;padding:32px;">Carregando gráfico...</div>
+      </div>
+      <div class="grafico-legenda">
+        <div class="grafico-leg-item"><div class="grafico-leg-dot" style="background:#2563eb;"></div>Entradas</div>
+        <div class="grafico-leg-item"><div class="grafico-leg-dot" style="background:#ef4444;"></div>Saídas</div>
+        <div class="grafico-leg-item"><div class="grafico-leg-dot" style="background:#10b981;"></div>Saldo líquido</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Row -->
+  <div class="dash-bottom">
+    <div class="panel-card">
+      <div class="panel-header">
+        <span class="panel-title">👤 Últimas Entradas</span>
+        <a href="pacientes.html" class="btn-small">Ver todos</a>
+      </div>
+      <div id="listaPacientesRecentes">
+        <div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Carregando...</div>
+      </div>
+    </div>
+
+    <div class="panel-card">
+      <div class="panel-header"><span class="panel-title">📋 Contratos a Vencer (30 dias)</span></div>
+      <div id="listaVencendo">
+        <div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Carregando...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script src="sidebar.js"></script>
+<script>
+let instituicaoId = null;
+let todosGastos = [];
+let todosPacientes = [];
+let qtdAtivos = 0, qtdEncerrados = 0;
+let dadosGraficos = null;
+let grafViewAtual = 'barras';
+
+async function iniciar() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = "index.html"; return; }
+  const { data: usuario } = await supabase.from("usuarios").select("instituicao_id").eq("id", session.user.id).single();
+  if (!usuario) return;
+  instituicaoId = usuario.instituicao_id;
+
+  const { data: inst } = await supabase.from("instituicoes").select("nome, nome_dono").eq("id", instituicaoId).single();
+  if (inst) {
+    const nome = inst.nome_dono || inst.nome || "";
+    document.getElementById("saudacao").textContent = nome ? `Olá, ${nome.split(" ")[0]} 👋` : "Painel";
+  }
+
+  const hoje = new Date();
+  document.getElementById("dataHoje").textContent = hoje.toLocaleDateString("pt-BR", {weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  document.getElementById("mesGastos").textContent = hoje.toLocaleDateString("pt-BR", {month:"long",year:"numeric"});
+
+  await Promise.all([
+    carregarKPIs(),
+    carregarAlertas(),
+    carregarPacientesRecentes(),
+    carregarVencendo30(),
+    carregarGastosFixos(),
+    carregarMetricas(),
+    carregarNotificacoes(),
+    carregarGraficoHistorico(),
+  ]);
+}
+
+// NOTIFICAÇÕES
+function toggleNotif() {
+  document.getElementById('notifDropdown').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('notifWrap');
+  if (wrap && !wrap.contains(e.target)) document.getElementById('notifDropdown')?.classList.remove('open');
+});
+
+async function carregarNotificacoes() {
+  const hoje = new Date();
+  const lim15 = new Date(); lim15.setDate(hoje.getDate()+15);
+  const mesRef = hoje.toISOString().slice(0,7)+"-01";
+
+  const [{ data: contratos }, { data: pags }] = await Promise.all([
+    supabase.from("pacientes").select("nome, data_fim_contrato")
+      .eq("instituicao_id", instituicaoId).is("data_desligamento", null)
+      .gte("data_fim_contrato", hoje.toISOString().split("T")[0])
+      .lte("data_fim_contrato", lim15.toISOString().split("T")[0]),
+    supabase.from("pagamentos").select("paciente_id, status")
+      .eq("instituicao_id", instituicaoId).eq("mes_referencia", mesRef).eq("status","atrasado")
+  ]);
+
+  const notifs = [];
+  (contratos||[]).forEach(c => {
+    const dias = Math.ceil((new Date(c.data_fim_contrato)-hoje)/86400000);
+    notifs.push({icon:'⚠️', text:`Contrato de <strong>${c.nome}</strong> vence em ${dias} dia${dias!==1?'s':''}`});
+  });
+  if ((pags||[]).length > 0) notifs.push({icon:'💳', text:`<strong>${pags.length}</strong> mensalidade(s) com status Atrasado`});
+
+  const countEl = document.getElementById('notifCount');
+  const listEl  = document.getElementById('notifList');
+  if (notifs.length > 0) {
+    countEl.textContent = notifs.length;
+    countEl.style.display = 'flex';
+    listEl.innerHTML = notifs.map(n => `<div class="notif-item"><span style="font-size:16px;">${n.icon}</span><div style="font-size:12.5px;">${n.text}</div></div>`).join('');
+  } else {
+    countEl.style.display = 'none';
+    listEl.innerHTML = `<div class="notif-empty">🎉 Nenhuma pendência!</div>`;
+  }
+}
+
+// KPIs
+async function carregarKPIs() {
+  const mesRef = new Date().toISOString().slice(0,7)+"-01";
+  const hoje = new Date();
+  const lim15 = new Date(); lim15.setDate(hoje.getDate()+15);
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split("T")[0];
+
+  const [{ data: pacs }, { data: pags }] = await Promise.all([
+    supabase.from("pacientes").select("id, data_desligamento, data_fim_contrato, data_inicio_contrato").eq("instituicao_id", instituicaoId),
+    supabase.from("pagamentos").select("paciente_id, status").eq("instituicao_id", instituicaoId).eq("mes_referencia", mesRef)
+  ]);
+
+  todosPacientes = pacs || [];
+  const ativos     = todosPacientes.filter(p => !p.data_desligamento);
+  const encerrados = todosPacientes.filter(p => p.data_desligamento);
+  qtdAtivos = ativos.length; qtdEncerrados = encerrados.length;
+
+  const venc15 = ativos.filter(p => {
+    if (!p.data_fim_contrato) return false;
+    const d = new Date(p.data_fim_contrato);
+    return d >= hoje && d <= lim15;
+  });
+  const novos = ativos.filter(p => p.data_inicio_contrato >= inicioMes);
+
+  const pagMap = {};
+  (pags||[]).forEach(p => { pagMap[p.paciente_id] = p.status; });
+  const pagas    = Object.values(pagMap).filter(s => s==='pago').length;
+  const pendentes = ativos.length - pagas;
+
+  document.getElementById("kpiAtivos").textContent     = ativos.length;
+  document.getElementById("kpiEncerrados").textContent  = encerrados.length;
+  document.getElementById("kpiVencendo").textContent    = venc15.length;
+  document.getElementById("kpiPendentes").textContent   = Math.max(0, pendentes);
+  document.getElementById("kpiPagas").textContent       = pagas;
+  document.getElementById("kpiNovos").textContent       = novos.length;
+
+  document.getElementById("miniAtivos").textContent    = ativos.length;
+  document.getElementById("miniVenc15").textContent    = venc15.length;
+  document.getElementById("miniMensOk").textContent    = pagas;
+  document.getElementById("miniMensPend").textContent  = Math.max(0, pendentes);
+
+  renderDonut(ativos.length, encerrados.length);
+}
+
+function renderDonut(ativos, encerrados) {
+  const total = ativos + encerrados;
+  document.getElementById("donutTotal").textContent = total;
+  const pct = total > 0 ? Math.round((ativos/total)*100) : 0;
+  document.getElementById("donutPacientes").style.background =
+    `conic-gradient(#2563eb 0% ${pct}%,#e2e8f0 ${pct}% 100%)`;
+  document.getElementById("legendPacientes").innerHTML = `
+    <div class="legend-item" onclick="location.href='pacientes.html?status=ativo'">
+      <div class="legend-dot" style="background:#2563eb"></div>Ativos<span class="legend-val">${ativos}</span>
+    </div>
+    <div class="legend-item" onclick="location.href='pacientes.html?status=encerrado'">
+      <div class="legend-dot" style="background:#e2e8f0;border:1px solid #cbd5e1;"></div>Encerrados<span class="legend-val">${encerrados}</span>
+    </div>`;
+}
+
+function filterDonut(mode, btn) {
+  document.querySelectorAll('#donutTabs .panel-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  if (mode==='ativo') renderDonut(qtdAtivos,0);
+  else if (mode==='encerrado') renderDonut(0,qtdEncerrados);
+  else renderDonut(qtdAtivos,qtdEncerrados);
+}
+
+// GASTOS
+async function carregarGastosFixos() {
+  const mesRef = new Date().toISOString().slice(0,7)+"-01";
+  const { data } = await supabase.from("gastos_fixos").select("categoria,valor,pago,descricao")
+    .eq("instituicao_id", instituicaoId).eq("mes_referencia", mesRef);
+  todosGastos = data || [];
+  renderGastos(todosGastos);
+}
+
+function renderGastos(gastos) {
+  const labels = {luz:"Luz",agua:"Água",aluguel:"Aluguel",comida:"Alimentação",
+    internet:"Internet",material_escritorio:"Mat. Escritório",produto_limpeza:"Limpeza",
+    medicacao:"Medicação",salarios:"Salários",manutencao:"Manutenção",outros:"Outros"};
+
+  const pago    = gastos.filter(g=>g.pago).reduce((s,g)=>s+(parseFloat(g.valor)||0),0);
+  const pendente = gastos.filter(g=>!g.pago).reduce((s,g)=>s+(parseFloat(g.valor)||0),0);
+  document.getElementById("gastoTotalPago").textContent = pago.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+  document.getElementById("gastoTotalPend").textContent = pendente.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+
+  if (!gastos.length) {
+    document.getElementById("barrasGastos").innerHTML = `<div style="color:var(--text-muted);font-size:13px;">Nenhum gasto. <a href="financeiro.html">Acesse Financeiro</a></div>`;
+    return;
+  }
+  const maxVal = Math.max(...gastos.map(g=>parseFloat(g.valor)||0),1);
+  document.getElementById("barrasGastos").innerHTML = gastos.map(g=>{
+    const val = parseFloat(g.valor)||0;
+    const pct = Math.round((val/maxVal)*100);
+    const cor = g.pago?"#10b981":"#f59e0b";
+    return `<div class="bar-item">
+      <div class="bar-item-header">
+        <span class="bar-item-label">${labels[g.categoria]||g.categoria} ${g.pago?"✅":"⏳"}</span>
+        <span class="bar-item-val">R$ ${val.toLocaleString("pt-BR",{minimumFractionDigits:2})}</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${cor};"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function filterGastos(mode, btn) {
+  document.querySelectorAll('#gastoTabs .panel-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  if (mode==='pago')     renderGastos(todosGastos.filter(g=>g.pago));
+  else if (mode==='pendente') renderGastos(todosGastos.filter(g=>!g.pago));
+  else renderGastos(todosGastos);
+}
+
+// MÉTRICAS E ANIVERSÁRIOS
+async function carregarMetricas() {
+  const hoje = new Date();
+  const inicioMes = new Date(hoje.getFullYear(),hoje.getMonth(),1).toISOString().split("T")[0];
+
+  const [{ data: pacs }, { data: funcs }] = await Promise.all([
+    supabase.from("pacientes").select("id,nome,data_nascimento,data_inicio_contrato").eq("instituicao_id",instituicaoId),
+    supabase.from("funcionarios").select("id").eq("instituicao_id",instituicaoId).eq("ativo",true)
+  ]);
+
+  const lista = pacs||[];
+  const novos = lista.filter(p=>p.data_inicio_contrato>=inicioMes).length;
+  document.getElementById("metricTotal").textContent  = lista.length;
+  document.getElementById("metricMes").textContent    = novos;
+  document.getElementById("metricFuncs").textContent  = (funcs||[]).length;
+
+  const anivSemana = lista.filter(p=>{
+    if (!p.data_nascimento) return false;
+    const [,mesN,diaN] = p.data_nascimento.split("-").map(Number);
+    for(let i=0;i<=7;i++){
+      const d = new Date(hoje); d.setDate(hoje.getDate()+i);
+      if(d.getMonth()+1===mesN && d.getDate()===diaN) return true;
+    }
+    return false;
+  });
+  const anivHoje = anivSemana.filter(p=>{
+    const [,mesN,diaN] = p.data_nascimento.split("-").map(Number);
+    return hoje.getMonth()+1===mesN && hoje.getDate()===diaN;
+  });
+  document.getElementById("metricBday").textContent = anivHoje.length;
+
+  const el = document.getElementById("aniversariantes");
+  if (!anivSemana.length) {
+    el.innerHTML = `<span style="color:var(--text-muted)">Nenhum aniversário esta semana 🙂</span>`;
+  } else {
+    el.innerHTML = anivSemana.map(p=>{
+      const ini = p.nome.split(" ").slice(0,2).map(n=>n[0]).join("").toUpperCase();
+      const [,mesN,diaN] = p.data_nascimento.split("-").map(Number);
+      const isHoje = hoje.getMonth()+1===mesN && hoje.getDate()===diaN;
+      return `<div class="bday-item">
+        <div class="bday-avatar">${ini}</div>
+        <div><div class="bday-nome">${p.nome}</div><div class="bday-data">${String(diaN).padStart(2,'0')}/${String(mesN).padStart(2,'0')}</div></div>
+        <span style="margin-left:auto;font-size:18px;">${isHoje?'🎂':'🗓️'}</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ── GRÁFICO HISTÓRICO (NOVO) ────────────────────────────────
+async function carregarGraficoHistorico() {
+  const { data: pacs } = await supabase.from("pacientes")
+    .select("data_inicio_contrato, data_desligamento")
+    .eq("instituicao_id", instituicaoId);
+
+  const hoje = new Date();
+  // Gerar os últimos 12 meses
+  const meses = [];
+  for (let i=11; i>=0; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth()-i, 1);
+    meses.push({ key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, label: d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}) });
+  }
+
+  // Contar entradas e saídas por mês
+  const lista = pacs || [];
+  const dados = meses.map(m => {
+    const entradas = lista.filter(p => p.data_inicio_contrato?.slice(0,7) === m.key).length;
+    const saidas   = lista.filter(p => p.data_desligamento?.slice(0,7) === m.key).length;
+    return { ...m, entradas, saidas, saldo: entradas - saidas };
+  });
+
+  dadosGraficos = dados;
+  renderGrafico(grafViewAtual);
+}
+
+function setGrafView(mode, btn) {
+  grafViewAtual = mode;
+  document.querySelectorAll('#grafTabs .panel-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  if (dadosGraficos) renderGrafico(mode);
+}
+
+function renderGrafico(mode) {
+  const dados = dadosGraficos;
+  if (!dados) return;
+
+  const W = Math.max(700, dados.length * 70);
+  const H = 200;
+  const PAD = { top: 16, right: 16, bottom: 40, left: 36 };
+  const innerW = W - PAD.left - PAD.right;
+  const innerH = H - PAD.top - PAD.bottom;
+
+  const maxVal = Math.max(...dados.map(d=>Math.max(d.entradas, d.saidas, 1)), 1);
+  const barW   = (innerW / dados.length) * 0.35;
+  const gap    = innerW / dados.length;
+
+  let svgContent = '';
+
+  if (mode === 'barras') {
+    dados.forEach((d, i) => {
+      const x = PAD.left + gap * i + gap * 0.15;
+      const hEnt = (d.entradas / maxVal) * innerH;
+      const hSai = (d.saidas   / maxVal) * innerH;
+
+      const yEnt = PAD.top + innerH - hEnt;
+      const ySai = PAD.top + innerH - hSai;
+
+      // Barras Entrada
+      if (d.entradas > 0) {
+        svgContent += `<rect class="bar-grafico" x="${x}" y="${yEnt}" width="${barW}" height="${hEnt}"
+          fill="#2563eb" rx="3" opacity="0.85">
+          <title>${d.label}: ${d.entradas} entrada${d.entradas!==1?'s':''}</title>
+        </rect>`;
+        if (d.entradas > 0) svgContent += `<text x="${x+barW/2}" y="${yEnt-4}" text-anchor="middle" font-size="10" fill="#2563eb" font-weight="600">${d.entradas}</text>`;
+      }
+      // Barras Saída
+      if (d.saidas > 0) {
+        svgContent += `<rect class="bar-grafico" x="${x+barW+2}" y="${ySai}" width="${barW}" height="${hSai}"
+          fill="#ef4444" rx="3" opacity="0.85">
+          <title>${d.label}: ${d.saidas} saída${d.saidas!==1?'s':''}</title>
+        </rect>`;
+        svgContent += `<text x="${x+barW+2+barW/2}" y="${ySai-4}" text-anchor="middle" font-size="10" fill="#ef4444" font-weight="600">${d.saidas}</text>`;
+      }
+
+      // Label do mês
+      svgContent += `<text x="${x+barW}" y="${PAD.top+innerH+16}" text-anchor="middle" font-size="10" fill="#64748b">${d.label}</text>`;
+    });
+
+    // Linha do saldo
+    const pontos = dados.map((d,i) => {
+      const x = PAD.left + gap*i + gap*0.5;
+      const saldoClamped = Math.max(Math.min(d.saldo, maxVal), -maxVal);
+      const y = PAD.top + innerH/2 - (saldoClamped/maxVal)*(innerH/2);
+      return `${x},${y}`;
+    }).join(' ');
+    svgContent += `<polyline points="${pontos}" fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="4,3" opacity=".8"/>`;
+    dados.forEach((d,i) => {
+      const x = PAD.left + gap*i + gap*0.5;
+      const saldoClamped = Math.max(Math.min(d.saldo, maxVal), -maxVal);
+      const y = PAD.top + innerH/2 - (saldoClamped/maxVal)*(innerH/2);
+      svgContent += `<circle cx="${x}" cy="${y}" r="4" fill="#10b981" opacity=".9">
+        <title>Saldo ${d.label}: ${d.saldo>0?'+':''}${d.saldo}</title>
+      </circle>`;
+    });
+
+  } else {
+    // Modo linha
+    const entPts = dados.map((d,i)=>{ const x=PAD.left+gap*i+gap*.5; const y=PAD.top+innerH-(d.entradas/maxVal)*innerH; return `${x},${y}`; }).join(' ');
+    const saiPts = dados.map((d,i)=>{ const x=PAD.left+gap*i+gap*.5; const y=PAD.top+innerH-(d.saidas/maxVal)*innerH; return `${x},${y}`; }).join(' ');
+
+    svgContent += `<polyline points="${entPts}" fill="none" stroke="#2563eb" stroke-width="2.5"/>`;
+    svgContent += `<polyline points="${saiPts}" fill="none" stroke="#ef4444" stroke-width="2.5"/>`;
+
+    dados.forEach((d,i) => {
+      const x = PAD.left + gap*i + gap*.5;
+      const yE = PAD.top + innerH - (d.entradas/maxVal)*innerH;
+      const yS = PAD.top + innerH - (d.saidas/maxVal)*innerH;
+      svgContent += `<circle cx="${x}" cy="${yE}" r="4" fill="#2563eb"><title>${d.label}: ${d.entradas} entradas</title></circle>`;
+      svgContent += `<circle cx="${x}" cy="${yS}" r="4" fill="#ef4444"><title>${d.label}: ${d.saidas} saídas</title></circle>`;
+      svgContent += `<text x="${x}" y="${PAD.top+innerH+16}" text-anchor="middle" font-size="10" fill="#64748b">${d.label}</text>`;
+    });
+  }
+
+  // Eixo Y (linhas de grade)
+  for (let i=0; i<=4; i++) {
+    const y = PAD.top + (innerH/4)*i;
+    const val = Math.round(maxVal - (maxVal/4)*i);
+    svgContent += `<line x1="${PAD.left}" y1="${y}" x2="${W-PAD.right}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`;
+    svgContent += `<text x="${PAD.left-4}" y="${y+4}" text-anchor="end" font-size="10" fill="#94a3b8">${val}</text>`;
+  }
+
+  document.getElementById('grafContainer').innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="min-width:${W}px;font-family:'Inter',sans-serif;">
+      ${svgContent}
+    </svg>`;
+}
+
+// ALERTAS
+async function carregarAlertas() {
+  const hoje = new Date().toISOString().split("T")[0];
+  const lim = new Date(); lim.setDate(lim.getDate()+7);
+  const { data } = await supabase.from("pacientes").select("nome,data_fim_contrato")
+    .gte("data_fim_contrato",hoje).lte("data_fim_contrato",lim.toISOString().split("T")[0])
+    .eq("instituicao_id",instituicaoId).is("data_desligamento",null);
+  if (data?.length > 0) {
+    document.getElementById("alertas").innerHTML = `<div class="alerta-box">
+      <div class="alerta-box-title">⚠️ Contratos vencendo nos próximos 7 dias</div>
+      ${data.map(p=>`<div class="alerta-item">• <strong>${p.nome}</strong> — vence em ${formatarData(p.data_fim_contrato)}</div>`).join('')}
+    </div>`;
+  }
+}
+
+// RECENTES
+async function carregarPacientesRecentes() {
+  const { data } = await supabase.from("pacientes")
+    .select("id,nome,responsavel_nome,data_desligamento,data_inicio_contrato")
+    .eq("instituicao_id",instituicaoId).order("created_at",{ascending:false}).limit(6);
+  if (!data?.length) {
+    document.getElementById("listaPacientesRecentes").innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Nenhum paciente ainda.</div>`;
+    return;
+  }
+  document.getElementById("listaPacientesRecentes").innerHTML = `
+    <table class="rec-table">
+      <thead><tr><th>Nome</th><th>Entrada</th><th>Status</th><th></th></tr></thead>
+      <tbody>${data.map(p=>{
+        const badge = !p.data_desligamento
+          ? `<span class="badge badge-success" style="font-size:10px;">Ativo</span>`
+          : `<span class="badge badge-danger" style="font-size:10px;">Encerrado</span>`;
+        return `<tr>
+          <td><strong>${p.nome}</strong></td>
+          <td>${p.data_inicio_contrato?formatarData(p.data_inicio_contrato):"—"}</td>
+          <td>${badge}</td>
+          <td><a href="editarpaciente.html?id=${p.id}" class="btn-small">Ver</a></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+}
+
+// VENCENDO 30d
+async function carregarVencendo30() {
+  const hoje = new Date().toISOString().split("T")[0];
+  const lim = new Date(); lim.setDate(lim.getDate()+30);
+  const { data } = await supabase.from("pacientes").select("id,nome,data_fim_contrato")
+    .gte("data_fim_contrato",hoje).lte("data_fim_contrato",lim.toISOString().split("T")[0])
+    .eq("instituicao_id",instituicaoId).is("data_desligamento",null)
+    .order("data_fim_contrato",{ascending:true});
+  if (!data?.length) {
+    document.getElementById("listaVencendo").innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Nenhum contrato vencendo nos próximos 30 dias ✅</div>`;
+    return;
+  }
+  const hojeD = new Date();
+  document.getElementById("listaVencendo").innerHTML = `
+    <table class="rec-table">
+      <thead><tr><th>Paciente</th><th>Vencimento</th><th>Prazo</th><th></th></tr></thead>
+      <tbody>${data.map(p=>{
+        const diff = Math.ceil((new Date(p.data_fim_contrato)-hojeD)/86400000);
+        const cls = diff<=7?"badge-danger":diff<=15?"badge-warning":"badge-info";
+        return `<tr>
+          <td><strong>${p.nome}</strong></td>
+          <td>${formatarData(p.data_fim_contrato)}</td>
+          <td><span class="badge ${cls}">${diff}d</span></td>
+          <td><a href="editarpaciente.html?id=${p.id}" class="btn-small">Ver</a></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+}
+
+function formatarData(iso) {
+  if (!iso) return "—";
+  const [a,m,d] = iso.split("-");
+  return `${d}/${m}/${a}`;
+}
+
+iniciar();
+</script>
+</body>
+</html>

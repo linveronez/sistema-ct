@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Financeiro — Sistema CT</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="layout.css">
+<style>
+.fin-tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid var(--border); flex-wrap: wrap; }
+.fin-tab { padding: 9px 18px; font-size: 13.5px; font-weight: 500; cursor: pointer; border: none; background: none; color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -2px; font-family: 'Inter', sans-serif; transition: all .18s; }
+.fin-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+.fin-tab:hover { color: var(--text-primary); }
+
+.mes-nav { display: flex; align-items: center; gap: 12px; }
+.mes-nav button { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 6px 12px; cursor: pointer; font-size: 14px; }
+.mes-nav button:hover { background: var(--border); }
+.mes-label { font-weight: 600; font-size: 15px; min-width: 160px; text-align: center; }
+
+.gasto-categoria { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); margin-bottom: 12px; }
+.gasto-row { display: grid; grid-template-columns: 32px 1fr 150px 130px 100px 100px 80px; gap: 10px; align-items: center; padding: 11px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.gasto-row:last-child { border-bottom: none; }
+.gasto-row.header { background: var(--bg); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-secondary); padding: 9px 16px; }
+.gasto-icon { font-size: 18px; text-align: center; }
+.check-pago { width: 20px; height: 20px; cursor: pointer; accent-color: var(--success); }
+.val-input { width: 100%; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; text-align: right; font-family: 'Inter', sans-serif; background: white; }
+.val-input:focus { outline: none; border-color: var(--primary); }
+.desc-input { width: 100%; padding: 5px 8px; border: 1px solid transparent; border-radius: var(--radius-sm); font-size: 13px; font-family: 'Inter', sans-serif; background: transparent; color: var(--text-secondary); }
+.desc-input:focus { outline: none; border-color: var(--border); background: white; }
+
+.fin-resumo { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.fin-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; box-shadow: var(--shadow-sm); }
+.fin-card .lbl { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-secondary); margin-bottom: 6px; }
+.fin-card .val { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 24px; font-weight: 800; letter-spacing: -1px; }
+.fin-card .sub { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+
+.btn-add-gasto { display: inline-flex; align-items: center; gap: 6px; background: var(--bg); border: 1px dashed var(--border); border-radius: var(--radius-md); padding: 8px 14px; font-size: 13px; color: var(--text-secondary); cursor: pointer; transition: all .18s; font-family: 'Inter', sans-serif; margin-top: 8px; }
+.btn-add-gasto:hover { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+
+/* Alerta saldo anterior */
+.alerta-saldo { background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.alerta-saldo-text { font-size: 13px; color: #92400e; }
+.alerta-saldo-val { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; font-weight: 800; color: #b45309; }
+
+/* Receita + Pagamentos (unificado) */
+.rec-pag-row { display: grid; grid-template-columns: 1fr 130px 150px 120px 120px; gap: 12px; align-items: center; padding: 11px 18px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.rec-pag-row:last-child { border-bottom: none; }
+.rec-pag-row.header { background: var(--bg); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-secondary); padding: 9px 18px; }
+
+/* Folha pagamento */
+.func-row { display: grid; grid-template-columns: 1fr 120px 140px 130px 100px; gap: 12px; align-items: center; padding: 11px 18px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.func-row.header { background: var(--bg); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-secondary); padding: 9px 18px; }
+.func-row:last-child { border-bottom: none; }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(2px); }
+.modal-box { background: white; border-radius: var(--radius-xl); width: 100%; max-width: 500px; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; }
+.modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-secondary); }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+</style>
+</head>
+<body>
+
+<div class="sidebar"></div>
+
+<div class="content">
+
+  <div class="header-page">
+    <div>
+      <h1>Financeiro</h1>
+      <p class="page-subtitle">Receitas, gastos e folha de pagamento</p>
+    </div>
+    <div class="mes-nav">
+      <button onclick="mudarMes(-1)">◀</button>
+      <div class="mes-label" id="mesLabel">—</div>
+      <button onclick="mudarMes(1)">▶</button>
+    </div>
+  </div>
+
+  <div class="fin-tabs">
+    <button class="fin-tab active" onclick="mudarAba('receita')">💰 Receitas & Pagamentos</button>
+    <button class="fin-tab" onclick="mudarAba('gastos')">🧾 Gastos Fixos</button>
+    <button class="fin-tab" onclick="mudarAba('folha')">👥 Folha de Pagamento</button>
+  </div>
+
+  <div id="abaReceita"></div>
+  <div id="abaGastos" style="display:none;"></div>
+  <div id="abaFolha" style="display:none;"></div>
+
+</div>
+
+<!-- Modal Funcionário Salário -->
+<div class="modal-overlay" id="modalFunc" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="modalFuncTitulo">Salário do Funcionário</h2>
+      <button class="modal-close" onclick="fecharModalFunc()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Salário Base (R$)</label>
+        <input type="number" step="0.01" id="fSalario" placeholder="0,00">
+      </div>
+      <div class="form-group">
+        <label>Benefícios / Bônus (R$)</label>
+        <input type="number" step="0.01" id="fBonus" placeholder="0,00">
+      </div>
+      <div class="form-group">
+        <label>Descontos (R$)</label>
+        <input type="number" step="0.01" id="fDesconto" placeholder="0,00">
+      </div>
+      <div class="form-group">
+        <label>Observação</label>
+        <input type="text" id="fObsFunc" placeholder="Ex: adiantamento, férias...">
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="fStatusFunc">
+          <option value="pendente">⏳ Pendente</option>
+          <option value="pago">✅ Pago</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="salvarSalario()">💾 Salvar</button>
+      <button class="btn-secondary" onclick="fecharModalFunc()">Cancelar</button>
+      <span id="fbFunc" style="font-size:13px;color:#64748b;margin-left:8px;"></span>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<script src="sidebar.js"></script>
+<script>
+let instituicaoId = null;
+let mesAtual = new Date();
+mesAtual.setDate(1);
+let abaAtiva = 'receita';
+let funcModalId = null;
+
+const CATEGORIAS_GASTOS = [
+  { key:'luz',               label:'Luz',              icon:'💡' },
+  { key:'agua',              label:'Água',             icon:'💧' },
+  { key:'aluguel',           label:'Aluguel',          icon:'🏠' },
+  { key:'comida',            label:'Alimentação',      icon:'🍽️' },
+  { key:'internet',          label:'Internet',         icon:'🌐' },
+  { key:'material_escritorio',label:'Mat. Escritório', icon:'📎' },
+  { key:'produto_limpeza',   label:'Limpeza',          icon:'🧴' },
+  { key:'medicacao',         label:'Medicação',        icon:'💊' },
+  { key:'manutencao',        label:'Manutenção',       icon:'🔧' },
+  { key:'outros',            label:'Outros',           icon:'📦' },
+];
+
+async function iniciar() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { window.location.href = "index.html"; return; }
+  const { data: usuario } = await supabase
+    .from("usuarios").select("instituicao_id").eq("id", session.user.id).single();
+  if (!usuario) return;
+  instituicaoId = usuario.instituicao_id;
+  atualizarMesLabel();
+  await carregarAba();
+}
+
+function getMesRef() { return mesAtual.toISOString().slice(0,7) + "-01"; }
+
+function atualizarMesLabel() {
+  document.getElementById("mesLabel").textContent =
+    mesAtual.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+}
+
+function mudarMes(dir) {
+  mesAtual.setMonth(mesAtual.getMonth() + dir);
+  atualizarMesLabel();
+  carregarAba();
+}
+
+function mudarAba(aba) {
+  abaAtiva = aba;
+  document.querySelectorAll(".fin-tab").forEach((t, i) => {
+    t.classList.toggle("active", ["receita","gastos","folha"][i] === aba);
+  });
+  document.getElementById("abaReceita").style.display = aba === "receita" ? "" : "none";
+  document.getElementById("abaGastos").style.display  = aba === "gastos"  ? "" : "none";
+  document.getElementById("abaFolha").style.display   = aba === "folha"   ? "" : "none";
+  carregarAba();
+}
+
+async function carregarAba() {
+  if (abaAtiva === "receita") await renderReceita();
+  if (abaAtiva === "gastos")  await renderGastos();
+  if (abaAtiva === "folha")   await renderFolha();
+}
+
+// ── RECEITA + PAGAMENTOS (UNIFICADO) ─────────────────
+async function renderReceita() {
+  const el = document.getElementById("abaReceita");
+  el.innerHTML = `<div style="padding:20px;color:#94a3b8;">Carregando...</div>`;
+
+  const mesRef = getMesRef();
+  const mesD = new Date(mesRef);
+
+  // Apenas pacientes ativos NO mês de referência
+  // (data_inicio_contrato <= ultimo dia do mes E (data_fim_contrato >= primeiro dia do mes OU data_fim_contrato is null) E nao desligado antes do mes)
+  const ultimoDiaMes = new Date(mesD.getFullYear(), mesD.getMonth()+1, 0).toISOString().split("T")[0];
+  const primeiroDiaMes = mesRef;
+
+  const { data: pacs } = await supabase.from("pacientes").select("*")
+    .eq("instituicao_id", instituicaoId)
+    .lte("data_inicio_contrato", ultimoDiaMes)
+    .order("nome");
+
+  // filtra no cliente para verificar fim contrato >= primeiro dia do mes
+  const lista = (pacs || []).filter(p => {
+    // Desligado antes do mês: excluir
+    if (p.data_desligamento && p.data_desligamento < primeiroDiaMes) return false;
+    // Contrato terminou antes do mês: excluir
+    if (p.data_fim_contrato && p.data_fim_contrato < primeiroDiaMes) return false;
+    return true;
+  });
+
+  const { data: pags } = await supabase.from("pagamentos").select("*")
+    .eq("instituicao_id", instituicaoId).eq("mes_referencia", mesRef);
+
+  const pagMap = {};
+  (pags||[]).forEach(p => { pagMap[p.paciente_id] = p; });
+
+  const pagas    = lista.filter(p => pagMap[p.id]?.status === 'pago').length;
+  const atrasados = lista.filter(p => pagMap[p.id]?.status === 'atrasado').length;
+  const pendentes = lista.filter(p => !pagMap[p.id] || pagMap[p.id]?.status === 'pendente').length;
+  const totalRec  = lista.reduce((s,p) => s + (parseFloat(p.valor_mensalidade)||0), 0);
+  const totalPago = lista.filter(p => pagMap[p.id]?.status === 'pago').reduce((s,p) => s + (parseFloat(p.valor_mensalidade)||0), 0);
+
+  const rows = lista.map(p => {
+    const pag = pagMap[p.id];
+    const status = pag?.status || 'pendente';
+    const badgeCls = status === 'pago' ? 'badge-success' : status === 'atrasado' ? 'badge-danger' : 'badge-warning';
+    const statusLabel = { pago:'✅ Pago', pendente:'⏳ Pendente', atrasado:'❌ Atrasado' }[status];
+    const dataPag = pag?.data_pagamento ? formatarData(pag.data_pagamento) : '—';
+    const ativo = !p.data_desligamento;
+    return `<tr>
+      <td>
+        <strong>${p.nome}</strong>
+        ${!ativo ? '<span class="badge badge-danger" style="margin-left:6px;font-size:10px;">Encerrado</span>' : ''}
+      </td>
+      <td style="text-align:right;font-weight:600;">R$ ${(parseFloat(p.valor_mensalidade)||0).toLocaleString("pt-BR",{minimumFractionDigits:2})}</td>
+      <td style="text-align:center;">
+        <select class="filtros" style="margin:0;padding:4px 8px;height:30px;font-size:12px;" onchange="atualizarStatusPag('${p.id}', this.value, '${pag?.id||''}', ${p.valor_mensalidade||0})">
+          <option value="pendente" ${status==='pendente'?'selected':''}>⏳ Pendente</option>
+          <option value="pago"     ${status==='pago'?'selected':''}>✅ Pago</option>
+          <option value="atrasado" ${status==='atrasado'?'selected':''}>❌ Atrasado</option>
+        </select>
+      </td>
+      <td style="text-align:center;">${dataPag}</td>
+    </tr>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="fin-resumo">
+      <div class="fin-card"><div class="lbl">Pacientes no Mês</div><div class="val">${lista.length}</div></div>
+      <div class="fin-card"><div class="lbl">Receita do Mês</div><div class="val" style="font-size:18px;">${totalRec.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div><div class="sub">⚠️ Sigiloso</div></div>
+      <div class="fin-card"><div class="lbl">Recebido</div><div class="val" style="font-size:18px;color:#10b981;">${totalPago.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div></div>
+      <div class="fin-card"><div class="lbl">Pagas / Pend / Atras.</div><div class="val" style="font-size:18px;">${pagas} / ${pendentes} / ${atrasados}</div></div>
+    </div>
+    <div class="table-wrapper">
+      <div class="card-header"><span class="card-title">Receitas & Status de Pagamentos — ${mesAtual.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}</span></div>
+      <table class="data-table">
+        <thead><tr><th>Paciente</th><th style="text-align:right">Mensalidade</th><th style="text-align:center">Status</th><th style="text-align:center">Data Pagto</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px;">Nenhum paciente ativo neste mês.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+
+async function atualizarStatusPag(pacienteId, novoStatus, pagId, valor) {
+  const mesRef = getMesRef();
+  const dados = {
+    status: novoStatus,
+    data_pagamento: novoStatus === 'pago' ? new Date().toISOString().split("T")[0] : null
+  };
+  if (pagId) {
+    await supabase.from("pagamentos").update(dados).eq("id", pagId);
+  } else {
+    await supabase.from("pagamentos").insert([{
+      instituicao_id: instituicaoId, paciente_id: pacienteId,
+      mes_referencia: mesRef, valor, ...dados
+    }]);
+  }
+  setTimeout(() => renderReceita(), 300);
+}
+
+// ── GASTOS FIXOS ──────────────────────────────────────
+async function renderGastos() {
+  const el = document.getElementById("abaGastos");
+  el.innerHTML = `<div style="padding:20px;color:#94a3b8;">Carregando...</div>`;
+
+  const mesRef = getMesRef();
+
+  // Verificar saldo em aberto de meses anteriores
+  const mesAnterior = new Date(mesAtual);
+  mesAnterior.setMonth(mesAnterior.getMonth() - 1);
+  const mesAntRef = mesAnterior.toISOString().slice(0,7)+"-01";
+  const { data: gastosAnt } = await supabase.from("gastos_fixos").select("valor, pago")
+    .eq("instituicao_id", instituicaoId).eq("mes_referencia", mesAntRef);
+  const saldoAnt = (gastosAnt||[]).filter(g => !g.pago).reduce((s,g) => s+(parseFloat(g.valor)||0), 0);
+
+  const { data: gastos } = await supabase.from("gastos_fixos").select("*")
+    .eq("instituicao_id", instituicaoId).eq("mes_referencia", mesRef).order("created_at");
+
+  const gastoMap = {};
+  (gastos || []).forEach(g => { gastoMap[g.categoria] = g; });
+
+  // Gastos extras (categorias que não estão no CATEGORIAS_GASTOS)
+  const categoriasPadrao = CATEGORIAS_GASTOS.map(c => c.key);
+  const gastosExtrasDB = (gastos||[]).filter(g => !categoriasPadrao.includes(g.categoria));
+
+  const totalGastos = (gastos||[]).reduce((s,g) => s + (parseFloat(g.valor)||0), 0);
+  const totalPago   = (gastos||[]).filter(g => g.pago).reduce((s,g) => s + (parseFloat(g.valor)||0), 0);
+
+  let html = '';
+
+  if (saldoAnt > 0) {
+    html += `<div class="alerta-saldo">
+      <div class="alerta-saldo-text">
+        ⚠️ Existe saldo em aberto do mês anterior (${mesAnterior.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})})
+      </div>
+      <div class="alerta-saldo-val">${saldoAnt.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+    </div>`;
+  }
+
+  html += `
+    <div class="fin-resumo">
+      <div class="fin-card"><div class="lbl">Total Gastos do Mês</div><div class="val" style="font-size:20px;">${totalGastos.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div></div>
+      <div class="fin-card"><div class="lbl">Já pago</div><div class="val" style="font-size:20px;color:#10b981;">${totalPago.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div></div>
+      <div class="fin-card"><div class="lbl">Pendente</div><div class="val" style="font-size:20px;color:#f59e0b;">${(totalGastos-totalPago).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div></div>
+      ${saldoAnt > 0 ? `<div class="fin-card" style="border-color:#fde68a;"><div class="lbl">Saldo Ant. em Aberto</div><div class="val" style="font-size:20px;color:#b45309;">${saldoAnt.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div></div>` : ''}
+    </div>
+    <div class="gasto-categoria">
+      <div class="gasto-row header">
+        <div></div><div>Categoria</div><div>Descrição</div>
+        <div style="text-align:right">Valor (R$)</div>
+        <div style="text-align:center">Data Pagto</div>
+        <div style="text-align:center">Pago?</div>
+        <div></div>
+      </div>`;
+
+  CATEGORIAS_GASTOS.forEach(cat => {
+    const g = gastoMap[cat.key] || {};
+    const id = g.id || '';
+    html += `
+      <div class="gasto-row" id="row-${cat.key}">
+        <div class="gasto-icon">${cat.icon}</div>
+        <div style="font-weight:500;">${cat.label}</div>
+        <div><input class="desc-input" type="text" placeholder="Descrição..." value="${g.descricao||''}" id="desc-${cat.key}"></div>
+        <div style="text-align:right"><input class="val-input" type="number" step="0.01" min="0" placeholder="0,00" value="${g.valor||''}" id="val-${cat.key}"></div>
+        <div style="text-align:center"><input type="date" style="font-size:11px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;" id="datapag-${cat.key}" value="${g.data_pagamento||''}"></div>
+        <div style="text-align:center"><input type="checkbox" class="check-pago" ${g.pago?'checked':''} id="pago-${cat.key}" onchange="salvarGasto('${cat.key}','${id}')"></div>
+        <div><button class="btn-small primary" onclick="salvarGasto('${cat.key}','${id}')">Salvar</button></div>
+      </div>`;
+  });
+
+  html += `</div>`;
+
+  // Gastos extras do banco
+  if (gastosExtrasDB.length > 0) {
+    html += `<div style="font-size:13px;font-weight:600;margin:16px 0 8px;">Gastos extras registrados:</div>
+      <div class="gasto-categoria">`;
+    gastosExtrasDB.forEach(g => {
+      html += `<div class="gasto-row">
+        <div>📦</div>
+        <div style="font-weight:500;">${g.categoria}</div>
+        <div>${g.descricao||''}</div>
+        <div style="text-align:right;font-weight:600;">R$ ${(parseFloat(g.valor)||0).toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
+        <div style="text-align:center">${g.data_pagamento?formatarData(g.data_pagamento):'—'}</div>
+        <div style="text-align:center"><span class="${g.pago?'badge badge-success':'badge badge-warning'}">${g.pago?'✅':'⏳'}</span></div>
+        <div style="display:flex;gap:4px;">
+          <button class="btn-small primary" onclick="editarGastoExtra('${g.id}')">✏️</button>
+          <button class="btn-small danger" onclick="excluirGastoExtra('${g.id}')">✕</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<p style="font-size:12px;color:#94a3b8;margin-top:8px;">💡 Clique em "Salvar" na linha para atualizar. Valores em branco serão ignorados.</p>
+    <button class="btn-add-gasto" onclick="adicionarGastoExtra()">+ Adicionar gasto extra</button>
+    <div id="gastosExtras"></div>`;
+
+  el.innerHTML = html;
+}
+
+async function salvarGasto(categoria, idExistente) {
+  const valor = parseFloat(document.getElementById(`val-${categoria}`)?.value) || 0;
+  const descricao = document.getElementById(`desc-${categoria}`)?.value || '';
+  const pago  = document.getElementById(`pago-${categoria}`)?.checked || false;
+  const dataPag = document.getElementById(`datapag-${categoria}`)?.value || null;
+  const mesRef = getMesRef();
+
+  if (!valor && !idExistente) return;
+
+  const dados = {
+    instituicao_id: instituicaoId, mes_referencia: mesRef, categoria, descricao, valor, pago,
+    data_pagamento: dataPag || (pago ? new Date().toISOString().split("T")[0] : null)
+  };
+
+  let err;
+  if (idExistente) {
+    ({ error: err } = await supabase.from("gastos_fixos").update(dados).eq("id", idExistente));
+  } else {
+    ({ error: err } = await supabase.from("gastos_fixos").insert([dados]));
+  }
+  if (err) { alert("Erro: " + err.message); return; }
+  await renderGastos();
+}
+
+async function excluirGastoExtra(id) {
+  if (!confirm("Excluir este gasto?")) return;
+  await supabase.from("gastos_fixos").delete().eq("id", id);
+  await renderGastos();
+}
+
+async function editarGastoExtra(id) {
+  const nova = prompt("Novo valor para este gasto (em R$):");
+  if (!nova) return;
+  const valor = parseFloat(nova.replace(",","."));
+  if (isNaN(valor)) { alert("Valor inválido."); return; }
+  const pago = confirm("Marcar como pago?");
+  await supabase.from("gastos_fixos").update({ valor, pago, data_pagamento: pago ? new Date().toISOString().split("T")[0] : null }).eq("id", id);
+  await renderGastos();
+}
+
+let contExtra = 0;
+function adicionarGastoExtra() {
+  contExtra++;
+  const id = `extra-${contExtra}`;
+  document.getElementById("gastosExtras").insertAdjacentHTML("beforeend", `
+    <div class="gasto-categoria" style="margin-top:8px;" id="${id}">
+      <div class="gasto-row" style="grid-template-columns:1fr 1fr 130px 100px 80px;">
+        <div><input class="val-input" style="text-align:left;padding:6px 10px;" type="text" placeholder="Categoria (ex: Material extra)" id="${id}-cat"></div>
+        <div><input class="desc-input" type="text" placeholder="Descrição" id="${id}-desc" style="border:1px solid var(--border);padding:5px 8px;border-radius:6px;background:white;"></div>
+        <div style="text-align:right"><input class="val-input" type="number" step="0.01" placeholder="0,00" id="${id}-val"></div>
+        <div style="text-align:center"><input type="checkbox" class="check-pago" id="${id}-pago"></div>
+        <div style="display:flex;gap:4px;">
+          <button class="btn-small primary" onclick="salvarGastoExtra('${id}')">Salvar</button>
+          <button class="btn-small danger" onclick="document.getElementById('${id}').remove()">✕</button>
+        </div>
+      </div>
+    </div>`);
+}
+
+async function salvarGastoExtra(id) {
+  const categoria = document.getElementById(`${id}-cat`).value.trim().toLowerCase().replace(/\s+/g,'_') || 'outros';
+  const descricao = document.getElementById(`${id}-desc`).value;
+  const valor     = parseFloat(document.getElementById(`${id}-val`).value) || 0;
+  const pago      = document.getElementById(`${id}-pago`).checked;
+  const mesRef    = getMesRef();
+
+  const { error } = await supabase.from("gastos_fixos").insert([{
+    instituicao_id: instituicaoId, mes_referencia: mesRef,
+    categoria, descricao, valor, pago,
+    data_pagamento: pago ? new Date().toISOString().split("T")[0] : null
+  }]);
+  if (error) { alert("Erro: " + error.message); return; }
+  await renderGastos();
+}
+
+// ── FOLHA DE PAGAMENTO ────────────────────────────────
+async function renderFolha() {
+  const el = document.getElementById("abaFolha");
+  el.innerHTML = `<div style="padding:20px;color:#94a3b8;">Carregando...</div>`;
+
+  const mesRef = getMesRef();
+  const { data: funcs } = await supabase.from("funcionarios").select("*")
+    .eq("instituicao_id", instituicaoId).eq("ativo", true).order("nome");
+
+  const { data: salarios } = await supabase.from("folha_pagamento").select("*")
+    .eq("instituicao_id", instituicaoId).eq("mes_referencia", mesRef);
+
+  const salMap = {};
+  (salarios||[]).forEach(s => { salMap[s.funcionario_id] = s; });
+
+  const lista = funcs || [];
+  const totalBruto = lista.reduce((s, f) => {
+    const sal = salMap[f.id];
+    return s + (parseFloat(sal?.salario_base)||0) + (parseFloat(sal?.bonus)||0);
+  }, 0);
+  const totalLiq = lista.reduce((s, f) => {
+    const sal = salMap[f.id];
+    const bruto = (parseFloat(sal?.salario_base)||0) + (parseFloat(sal?.bonus)||0);
+    const desc  = parseFloat(sal?.descontos)||0;
+    return s + bruto - desc;
+  }, 0);
+  const pagos = lista.filter(f => salMap[f.id]?.status === 'pago').length;
+
+  const cargo = { terapeuta:'Terapeuta', psicologo:'Psicólogo', enfermeiro:'Enfermeiro', administrativo:'Administrativo', outro:'Outro' };
+
+  const rows = lista.map(f => {
+    const sal = salMap[f.id];
+    const status = sal?.status || 'pendente';
+    const bruto = (parseFloat(sal?.salario_base)||0) + (parseFloat(sal?.bonus)||0);
+    const desc  = parseFloat(sal?.descontos)||0;
+    const liq   = bruto - desc;
+    const badgeCls = status === 'pago' ? 'badge-success' : 'badge-warning';
+    return `<tr>
+      <td><strong>${f.nome}</strong><br><span style="font-size:11px;color:#94a3b8;">${cargo[f.cargo]||f.cargo}</span></td>
+      <td style="text-align:right">${sal?.salario_base ? 'R$ '+parseFloat(sal.salario_base).toLocaleString("pt-BR",{minimumFractionDigits:2}) : '—'}</td>
+      <td style="text-align:right">${liq > 0 ? 'R$ '+liq.toLocaleString("pt-BR",{minimumFractionDigits:2}) : '—'}</td>
+      <td style="text-align:center"><span class="badge ${badgeCls}">${status === 'pago' ? '✅ Pago' : '⏳ Pendente'}</span></td>
+      <td><button class="btn-small primary" onclick="abrirModalFunc('${f.id}', '${f.nome.replace(/'/g,"\\'")}')">✏️ Editar</button></td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Nenhum funcionário ativo.</td></tr>`;
+
+  el.innerHTML = `
+    <div class="fin-resumo">
+      <div class="fin-card"><div class="lbl">Funcionários Ativos</div><div class="val">${lista.length}</div></div>
+      <div class="fin-card"><div class="lbl">Total Bruto</div><div class="val" style="font-size:18px;">${totalBruto.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div></div>
+      <div class="fin-card"><div class="lbl">Total Líquido</div><div class="val" style="font-size:18px;color:#10b981;">${totalLiq.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div></div>
+      <div class="fin-card"><div class="lbl">Pagos / Pendentes</div><div class="val">${pagos} / ${lista.length - pagos}</div></div>
+    </div>
+    <div class="table-wrapper">
+      <div class="card-header"><span class="card-title">Folha de Pagamento — ${mesAtual.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}</span></div>
+      <table class="data-table">
+        <thead><tr><th>Funcionário</th><th style="text-align:right">Salário Base</th><th style="text-align:right">Líquido</th><th style="text-align:center">Status</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function abrirModalFunc(id, nome) {
+  funcModalId = id;
+  document.getElementById("modalFuncTitulo").textContent = `Salário — ${nome}`;
+  document.getElementById("modalFunc").style.display = "flex";
+  // Preencher dados existentes
+  const mesRef = getMesRef();
+  supabase.from("folha_pagamento").select("*").eq("funcionario_id", id).eq("mes_referencia", mesRef).single()
+    .then(({ data }) => {
+      document.getElementById("fSalario").value   = data?.salario_base || '';
+      document.getElementById("fBonus").value     = data?.bonus || '';
+      document.getElementById("fDesconto").value  = data?.descontos || '';
+      document.getElementById("fObsFunc").value   = data?.observacao || '';
+      document.getElementById("fStatusFunc").value = data?.status || 'pendente';
+    });
+}
+
+function fecharModalFunc() { document.getElementById("modalFunc").style.display = "none"; }
+
+async function salvarSalario() {
+  const fb = document.getElementById("fbFunc");
+  const mesRef = getMesRef();
+  const dados = {
+    instituicao_id: instituicaoId,
+    funcionario_id: funcModalId,
+    mes_referencia: mesRef,
+    salario_base: parseFloat(document.getElementById("fSalario").value) || 0,
+    bonus:        parseFloat(document.getElementById("fBonus").value) || 0,
+    descontos:    parseFloat(document.getElementById("fDesconto").value) || 0,
+    observacao:   document.getElementById("fObsFunc").value,
+    status:       document.getElementById("fStatusFunc").value,
+    data_pagamento: document.getElementById("fStatusFunc").value === 'pago' ? new Date().toISOString().split("T")[0] : null
+  };
+
+  fb.textContent = "Salvando..."; fb.style.color="#64748b";
+  // Upsert
+  const { data: existe } = await supabase.from("folha_pagamento").select("id")
+    .eq("funcionario_id", funcModalId).eq("mes_referencia", mesRef).single().catch(() => ({ data: null }));
+
+  let err;
+  if (existe) {
+    ({ error: err } = await supabase.from("folha_pagamento").update(dados).eq("id", existe.id));
+  } else {
+    ({ error: err } = await supabase.from("folha_pagamento").insert([dados]));
+  }
+  if (err) { fb.textContent = "Erro: " + err.message; fb.style.color="#ef4444"; return; }
+  fb.textContent = "✅ Salvo!"; fb.style.color="#10b981";
+  setTimeout(() => { fecharModalFunc(); renderFolha(); }, 1200);
+}
+
+function formatarData(iso) {
+  if (!iso) return "—";
+  const [a,m,d] = iso.split("-");
+  return `${d}/${m}/${a}`;
+}
+
+iniciar();
+</script>
+</body>
+</html>
